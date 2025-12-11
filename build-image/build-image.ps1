@@ -52,12 +52,34 @@ if ([string]::IsNullOrWhiteSpace($IMAGE_VERSION)) {
 
 $FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_VERSION}"
 
-Write-Host ""
+Write-Host "" 
 Write-Host "[BUILD] Building: $FULL_IMAGE" -ForegroundColor Cyan
 Write-Host ""
 
-# Build the image
-docker build -t $FULL_IMAGE .
+# Determine target platform (default to linux/amd64 for Swarm nodes)
+$TargetPlatform = $env:TARGET_PLATFORM
+if ([string]::IsNullOrWhiteSpace($TargetPlatform)) {
+    $TargetPlatform = "linux/amd64"
+}
+
+Write-Host "Target platform: $TargetPlatform" -ForegroundColor Cyan
+Write-Host ""
+
+$useBuildx = $false
+try {
+    docker buildx version | Out-Null
+    if ($LASTEXITCODE -eq 0) { $useBuildx = $true }
+} catch {
+    $useBuildx = $false
+}
+
+if ($useBuildx) {
+    Write-Host "[BUILD] Using docker buildx for platform $TargetPlatform..." -ForegroundColor Cyan
+    docker buildx build --platform $TargetPlatform -t $FULL_IMAGE --load .
+} else {
+    Write-Host "[BUILD] docker buildx not found, falling back to docker build (host architecture)..." -ForegroundColor Yellow
+    docker build -t $FULL_IMAGE .
+}
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""

@@ -18,14 +18,18 @@ RUN python3 -m venv $VIRTUAL_ENV \
 # Copy the app.
 COPY . /code
 
-# Remove unwanted files or directories.
+# Remove unwanted files or directories (but keep /code/docker for entrypoint).
 RUN rm -rf \
     /code/.git \
     /code/.idea \
     /code/config/config.txt \
-    /code/docker \
     /code/logs \
     /code/serverInfo \
     /code/docker-compose.yml \
     && mkdir -p /code/logs/dayBased \
-    && mkdir -p /code/serverInfo 
+    && mkdir -p /code/serverInfo \
+    && chmod 755 /code/docker/entrypoint.sh || true
+
+# Configure entrypoint that generates config from environment; the actual
+# command (python src/check_server.py) is provided by docker-compose.
+ENTRYPOINT ["/code/docker/entrypoint.sh"]

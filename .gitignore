@@ -20,3 +20,6 @@ serverInfo/*
 
 # Do not version docker compose (use template instead to reflect changes).
 docker-compose.yml
+
+# .DS_Store files of macOS.
+.DS_Store

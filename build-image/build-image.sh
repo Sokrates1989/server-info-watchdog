@@ -10,9 +10,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+# Source git utilities for corruption detection
+if [ -f "${PROJECT_ROOT}/setup/modules/git_utils.sh" ]; then
+    source "${PROJECT_ROOT}/setup/modules/git_utils.sh"
+    GIT_UTILS_LOADED=true
+else
+    GIT_UTILS_LOADED=false
+fi
+
 echo "🏗️  Server Info Watchdog - Build Production Image"
 echo "=================================================="
 echo ""
+
+# Check for git corruption before building
+if [ "$GIT_UTILS_LOADED" = true ]; then
+    if detect_git_corruption; then
+        echo "⚠️  Warning: Git repository corruption detected!"
+        echo "   The build may show warnings about git commit information."
+        echo ""
+        check_and_offer_git_repair
+        echo ""
+    fi
+fi
 
 # Read current values from .env
 if [ -f .env ]; then
@@ -47,10 +66,35 @@ echo ""
 echo "📦 Building: $FULL_IMAGE"
 echo ""
 
-# Build the image
-docker build -t "$FULL_IMAGE" .
+# Determine target platform (default to linux/amd64 for Swarm nodes)
+TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
 
-if [ $? -eq 0 ]; then
+echo "Target platform: $TARGET_PLATFORM"
+echo ""
+
+# Build the image, capturing output for git corruption detection
+BUILD_EXIT_CODE=0
+if docker buildx version >/dev/null 2>&1; then
+    echo "📦 Using docker buildx for platform $TARGET_PLATFORM..."
+    BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -t "$FULL_IMAGE" --load . 2>&1) || BUILD_EXIT_CODE=$?
+else
+    echo "📦 docker buildx not found, falling back to docker build (host architecture)..."
+    BUILD_OUTPUT=$(docker build -t "$FULL_IMAGE" . 2>&1) || BUILD_EXIT_CODE=$?
+fi
+
+echo "$BUILD_OUTPUT"
+
+# Check for git corruption in build output
+if [ "$GIT_UTILS_LOADED" = true ]; then
+    if check_git_corruption_in_output "$BUILD_OUTPUT"; then
+        echo ""
+        echo "⚠️  Git corruption warnings detected during build."
+        echo "   The image may have been built successfully, but git metadata is incomplete."
+        handle_git_error_in_output "$BUILD_OUTPUT" "Docker build"
+    fi
+fi
+
+if [ $BUILD_EXIT_CODE -eq 0 ]; then
     echo ""
     echo "✅ Image built successfully: $FULL_IMAGE"
     echo ""

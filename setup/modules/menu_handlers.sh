@@ -48,7 +48,7 @@ handle_build_image() {
     echo "🏗️  Building production Docker image..."
     echo ""
     if [ -f "build-image/build-image.sh" ]; then
-        ./build-image/build-image.sh
+        bash build-image/build-image.sh
     else
         echo "❌ build-image/build-image.sh not found"
     fi
