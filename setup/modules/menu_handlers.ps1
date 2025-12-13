@@ -67,43 +67,66 @@ function Show-MainMenu {
     $summary = $null
     $exitCode = 0
 
-    Write-Host "Choose an option:" -ForegroundColor Yellow
-    Write-Host "1) Start Watchdog (docker compose up)" -ForegroundColor Gray
-    Write-Host "2) Start Watchdog detached (background)" -ForegroundColor Gray
-    Write-Host "3) Run check once" -ForegroundColor Gray
-    Write-Host "4) View logs" -ForegroundColor Gray
-    Write-Host "5) Docker Compose Down (stop containers)" -ForegroundColor Gray
-    Write-Host "6) Build Production Docker Image" -ForegroundColor Gray
-    Write-Host "7) Exit" -ForegroundColor Gray
+    $menuNext = 1
+    $MENU_RUN_START = $menuNext; $menuNext++
+    $MENU_RUN_START_DETACHED = $menuNext; $menuNext++
+    $MENU_RUN_ONCE = $menuNext; $menuNext++
+
+    $MENU_MONITOR_LOGS = $menuNext; $menuNext++
+
+    $MENU_MAINT_DOWN = $menuNext; $menuNext++
+
+    $MENU_BUILD_IMAGE = $menuNext; $menuNext++
+
+    $MENU_EXIT = $menuNext
+
+    Write-Host "" 
+    Write-Host "================ Main Menu ================" -ForegroundColor Yellow
+    Write-Host "" 
+    Write-Host "Run:" -ForegroundColor Yellow
+    Write-Host "  $MENU_RUN_START) Start Watchdog (docker compose up)" -ForegroundColor Gray
+    Write-Host "  $MENU_RUN_START_DETACHED) Start Watchdog detached (background)" -ForegroundColor Gray
+    Write-Host "  $MENU_RUN_ONCE) Run check once" -ForegroundColor Gray
+    Write-Host "" 
+    Write-Host "Monitoring:" -ForegroundColor Yellow
+    Write-Host "  $MENU_MONITOR_LOGS) View logs" -ForegroundColor Gray
+    Write-Host "" 
+    Write-Host "Maintenance:" -ForegroundColor Yellow
+    Write-Host "  $MENU_MAINT_DOWN) Docker Compose Down (stop containers)" -ForegroundColor Gray
+    Write-Host "" 
+    Write-Host "Build:" -ForegroundColor Yellow
+    Write-Host "  $MENU_BUILD_IMAGE) Build Production Docker Image" -ForegroundColor Gray
+    Write-Host "" 
+    Write-Host "  $MENU_EXIT) Exit" -ForegroundColor Gray
     Write-Host ""
-    $choice = Read-Host "Your choice (1-7)"
+    $choice = Read-Host "Your choice (1-$MENU_EXIT)"
 
     switch ($choice) {
-        "1" {
+        "$MENU_RUN_START" {
             Start-Watchdog -ComposeFile $ComposeFile
             $summary = "Watchdog started"
         }
-        "2" {
+        "$MENU_RUN_START_DETACHED" {
             Start-WatchdogDetached -ComposeFile $ComposeFile
             $summary = "Watchdog started in background"
         }
-        "3" {
+        "$MENU_RUN_ONCE" {
             Start-RunOnce -ComposeFile $ComposeFile
             $summary = "Check executed"
         }
-        "4" {
+        "$MENU_MONITOR_LOGS" {
             Show-Logs -ComposeFile $ComposeFile
             $summary = "Logs viewed"
         }
-        "5" {
+        "$MENU_MAINT_DOWN" {
             Invoke-DockerComposeDown -ComposeFile $ComposeFile
             $summary = "Docker Compose Down executed"
         }
-        "6" {
+        "$MENU_BUILD_IMAGE" {
             Build-ProductionImage
             $summary = "Image build executed"
         }
-        "7" {
+        "$MENU_EXIT" {
             Write-Host "Goodbye!" -ForegroundColor Cyan
             exit 0
         }

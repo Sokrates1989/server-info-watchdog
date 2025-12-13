@@ -31,6 +31,12 @@ if (-not (Test-Path .env)) {
             Write-Host "[OK] .env created from template" -ForegroundColor Green
             Write-Host "[WARN] Please edit .env with your configuration before continuing" -ForegroundColor Yellow
             Write-Host ""
+            $editor = $env:EDITOR
+            if ([string]::IsNullOrWhiteSpace($editor)) { $editor = "notepad" }
+            $openNow = Read-Host "Open .env now in $editor? (Y/n)"
+            if ($openNow -notmatch "^[Nn]$") {
+                & $editor ".env"
+            }
             $null = Read-Host "Press Enter to continue after editing .env..."
         } else {
             Write-Host "[ERROR] Cannot continue without .env file" -ForegroundColor Red

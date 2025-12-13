@@ -37,6 +37,16 @@ if [ ! -f .env ]; then
             echo "✅ .env created from template"
             echo "⚠️  Please edit .env with your configuration before continuing"
             echo ""
+
+            EDITOR_CMD="${EDITOR:-nano}"
+            if ! command -v "$EDITOR_CMD" >/dev/null 2>&1; then
+                EDITOR_CMD="vi"
+            fi
+            read -p "Open .env now in $EDITOR_CMD? (Y/n): " open_env
+            if [[ ! "$open_env" =~ ^[Nn]$ ]]; then
+                "$EDITOR_CMD" .env
+            fi
+
             read -p "Press Enter to continue after editing .env..."
         else
             echo "❌ Cannot continue without .env file"

@@ -69,50 +69,73 @@ show_main_menu() {
     local choice
 
     while true; do
-        echo "Choose an option:"
-        echo "1) Start Watchdog (docker compose up)"
-        echo "2) Start Watchdog detached (background)"
-        echo "3) Run check once"
-        echo "4) View logs"
-        echo "5) Docker Compose Down (stop containers)"
-        echo "6) Build Production Docker Image"
-        echo "7) Exit"
+        local MENU_NEXT=1
+        local MENU_RUN_START=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+        local MENU_RUN_START_DETACHED=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+        local MENU_RUN_ONCE=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+
+        local MENU_MONITOR_LOGS=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+
+        local MENU_MAINT_DOWN=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+
+        local MENU_BUILD_IMAGE=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+
+        local MENU_EXIT=$MENU_NEXT
+
+        echo ""
+        echo "================ Main Menu ================"
+        echo ""
+        echo "Run:"
+        echo "  ${MENU_RUN_START}) Start Watchdog (docker compose up)"
+        echo "  ${MENU_RUN_START_DETACHED}) Start Watchdog detached (background)"
+        echo "  ${MENU_RUN_ONCE}) Run check once"
+        echo ""
+        echo "Monitoring:"
+        echo "  ${MENU_MONITOR_LOGS}) View logs"
+        echo ""
+        echo "Maintenance:"
+        echo "  ${MENU_MAINT_DOWN}) Docker Compose Down (stop containers)"
+        echo ""
+        echo "Build:"
+        echo "  ${MENU_BUILD_IMAGE}) Build Production Docker Image"
+        echo ""
+        echo "  ${MENU_EXIT}) Exit"
         echo ""
 
-        read -p "Your choice (1-7): " choice
+        read -p "Your choice (1-${MENU_EXIT}): " choice
 
         case $choice in
-          1)
+          ${MENU_RUN_START})
             handle_watchdog_start "$compose_file"
             summary_msg="Watchdog started"
             break
             ;;
-          2)
+          ${MENU_RUN_START_DETACHED})
             handle_watchdog_start_detached "$compose_file"
             summary_msg="Watchdog started in background"
             break
             ;;
-          3)
+          ${MENU_RUN_ONCE})
             handle_run_once "$compose_file"
             summary_msg="Check executed"
             break
             ;;
-          4)
+          ${MENU_MONITOR_LOGS})
             handle_view_logs "$compose_file"
             summary_msg="Logs viewed"
             break
             ;;
-          5)
+          ${MENU_MAINT_DOWN})
             handle_docker_compose_down "$compose_file"
             summary_msg="Docker Compose Down executed"
             break
             ;;
-          6)
+          ${MENU_BUILD_IMAGE})
             handle_build_image
             summary_msg="Image build executed"
             break
             ;;
-          7)
+          ${MENU_EXIT})
             echo "👋 Goodbye!"
             exit 0
             ;;
