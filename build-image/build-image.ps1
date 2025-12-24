@@ -85,28 +85,26 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "[OK] Image built successfully: $FULL_IMAGE" -ForegroundColor Green
     Write-Host ""
-    
-    # Ask about pushing
-    $pushImage = Read-Host "Push to registry? (y/N)"
-    if ($pushImage -match "^[Yy]$") {
-        Write-Host ""
-        Write-Host "[PUSH] Pushing to registry..." -ForegroundColor Cyan
-        docker push $FULL_IMAGE
-        
+
+    Write-Host "" 
+    Write-Host "[PUSH] Pushing to registry..." -ForegroundColor Cyan
+    docker push $FULL_IMAGE
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Failed to push image: $FULL_IMAGE" -ForegroundColor Red
+        Write-Host "        Please run 'docker login' for your registry and re-run the script." -ForegroundColor Yellow
+        exit 1
+    }
+
+    Write-Host "[OK] Image pushed successfully" -ForegroundColor Green
+
+    if ($IMAGE_VERSION -ne "latest") {
+        docker tag $FULL_IMAGE "${IMAGE_NAME}:latest"
+        docker push "${IMAGE_NAME}:latest"
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "[OK] Image pushed successfully" -ForegroundColor Green
-            
-            # Also tag and push as latest if version is not latest
-            if ($IMAGE_VERSION -ne "latest") {
-                $pushLatest = Read-Host "Also push as 'latest'? (y/N)"
-                if ($pushLatest -match "^[Yy]$") {
-                    docker tag $FULL_IMAGE "${IMAGE_NAME}:latest"
-                    docker push "${IMAGE_NAME}:latest"
-                    Write-Host "[OK] Also pushed as ${IMAGE_NAME}:latest" -ForegroundColor Green
-                }
-            }
+            Write-Host "[OK] Also pushed as ${IMAGE_NAME}:latest" -ForegroundColor Green
         } else {
-            Write-Host "[ERROR] Failed to push image" -ForegroundColor Red
+            Write-Host "[ERROR] Failed to push ${IMAGE_NAME}:latest" -ForegroundColor Red
             exit 1
         }
     }

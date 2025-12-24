@@ -84,6 +84,121 @@ fi
 
 echo "$BUILD_OUTPUT"
 
+# Registry helper functions for push with login retry
+infer_registry() {
+  local image="$1"
+  local first="${image%%/*}"
+  if [[ "$image" == */* && ( "$first" == *.* || "$first" == *:* ) ]]; then
+    printf '%s' "$first"
+    return 0
+  fi
+  return 1
+}
+
+registry_login_flow() {
+  local registry="$1"
+  local target=""
+  if [ -n "$registry" ]; then
+    target=" $registry"
+  fi
+
+  echo "Choose a login method:"
+  echo "1) docker login${target}"
+  echo "2) docker logout${target} && docker login${target} (switch account)"
+  echo "3) Login with username + token (uses --password-stdin)"
+  read -r -p "Your choice (1-3) [1]: " login_method
+  login_method="${login_method:-1}"
+
+  case "$login_method" in
+    1)
+      if [ -n "$registry" ]; then
+        docker login "$registry"
+      else
+        docker login
+      fi
+      ;;
+    2)
+      if [ -n "$registry" ]; then
+        docker logout "$registry" >/dev/null 2>&1 || true
+        docker login "$registry"
+      else
+        docker logout >/dev/null 2>&1 || true
+        docker login
+      fi
+      ;;
+    3)
+      read -r -p "Username: " login_user
+      read -r -s -p "Token (will not echo): " login_token
+      echo ""
+      if [ -n "$registry" ]; then
+        printf '%s' "$login_token" | docker login "$registry" -u "$login_user" --password-stdin
+      else
+        printf '%s' "$login_token" | docker login -u "$login_user" --password-stdin
+      fi
+      ;;
+    *)
+      echo "Invalid choice"
+      return 1
+      ;;
+  esac
+}
+
+push_with_login_retry() {
+  local image_ref="$1"
+  local registry="$2"
+
+  local push_output
+  local push_status
+  set +e
+  push_output="$(docker push "$image_ref" 2>&1)"
+  push_status=$?
+  set -e
+
+  if [ $push_status -eq 0 ]; then
+    echo "$push_output"
+    return 0
+  fi
+
+  echo "$push_output"
+  echo "❌ Failed to push image: $image_ref"
+
+  if echo "$push_output" | grep -qiE "insufficient_scope|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied"; then
+    echo ""
+    if [ -n "$registry" ]; then
+      echo "🔐 Docker registry login required for: $registry"
+    else
+      echo "🔐 Docker registry login required"
+    fi
+    echo ""
+    registry_login_flow "$registry" || return 1
+
+    echo ""
+    echo "🔁 Retrying push: $image_ref"
+
+    local retry_output
+    local retry_status
+    set +e
+    retry_output="$(docker push "$image_ref" 2>&1)"
+    retry_status=$?
+    set -e
+
+    echo "$retry_output"
+    if [ $retry_status -eq 0 ]; then
+      return 0
+    fi
+
+    if echo "$retry_output" | grep -qiE "insufficient_scope|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied"; then
+      echo ""
+      echo "⚠ Push still failing after login."
+      echo "   Ensure the token/user has permission to push to this registry."
+    fi
+    return 1
+  fi
+
+  echo "   Please run 'docker login' for your registry and re-run the script."
+  return 1
+}
+
 # Check for git corruption in build output
 if [ "$GIT_UTILS_LOADED" = true ]; then
     if check_git_corruption_in_output "$BUILD_OUTPUT"; then
@@ -98,30 +213,20 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     echo ""
     echo "✅ Image built successfully: $FULL_IMAGE"
     echo ""
-    
-    # Ask about pushing
-    read -p "Push to registry? (y/N): " push_image
-    if [[ "$push_image" =~ ^[Yy]$ ]]; then
+
+    echo ""
+    echo "📤 Pushing to registry..."
+    registry="$(infer_registry "$IMAGE_NAME" || true)"
+    push_with_login_retry "$FULL_IMAGE" "$registry" || exit 1
+    echo "✅ Image pushed successfully"
+
+    # Also tag and push as latest if version is not latest
+    if [ "$IMAGE_VERSION" != "latest" ]; then
         echo ""
-        echo "📤 Pushing to registry..."
-        docker push "$FULL_IMAGE"
-        
-        if [ $? -eq 0 ]; then
-            echo "✅ Image pushed successfully"
-            
-            # Also tag and push as latest if version is not latest
-            if [ "$IMAGE_VERSION" != "latest" ]; then
-                read -p "Also push as 'latest'? (y/N): " push_latest
-                if [[ "$push_latest" =~ ^[Yy]$ ]]; then
-                    docker tag "$FULL_IMAGE" "${IMAGE_NAME}:latest"
-                    docker push "${IMAGE_NAME}:latest"
-                    echo "✅ Also pushed as ${IMAGE_NAME}:latest"
-                fi
-            fi
-        else
-            echo "❌ Failed to push image"
-            exit 1
-        fi
+        echo "📤 Tagging and pushing ${IMAGE_NAME}:latest..."
+        docker tag "$FULL_IMAGE" "${IMAGE_NAME}:latest"
+        push_with_login_retry "${IMAGE_NAME}:latest" "$registry" || exit 1
+        echo "✅ Also pushed as ${IMAGE_NAME}:latest"
     fi
     
     # Update .env with new version

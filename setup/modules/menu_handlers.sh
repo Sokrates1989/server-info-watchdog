@@ -4,6 +4,17 @@
 #
 # Module for handling menu actions in quick-start script
 
+read_prompt() {
+    local prompt="$1"
+    local var_name="$2"
+
+    if [[ -r /dev/tty ]]; then
+        read -r -p "$prompt" "$var_name" < /dev/tty
+    else
+        read -r -p "$prompt" "$var_name"
+    fi
+}
+
 handle_watchdog_start() {
     local compose_file="$1"
     
@@ -39,7 +50,7 @@ handle_docker_compose_down() {
     echo "🛑 Stopping containers..."
     echo "   Using compose file: $compose_file"
     echo ""
-    docker compose --env-file .env -f "$compose_file" down
+    docker compose --env-file .env -f "$compose_file" down --remove-orphans
     echo ""
     echo "✅ Containers stopped"
 }
@@ -102,7 +113,7 @@ show_main_menu() {
         echo "  ${MENU_EXIT}) Exit"
         echo ""
 
-        read -p "Your choice (1-${MENU_EXIT}): " choice
+        read_prompt "Your choice (1-${MENU_EXIT}): " choice
 
         case $choice in
           ${MENU_RUN_START})
