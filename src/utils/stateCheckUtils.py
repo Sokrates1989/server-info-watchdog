@@ -12,6 +12,7 @@ import requests
 # For file operations with operating system.
 import os
 # For getting config.
+import watchdogConfig
 import json
 # For creating files.
 import fileUtils
@@ -32,11 +33,7 @@ import websiteStateAndMessageSentItem as WebsiteStateAndMessageSentItem
 # Path to messageSentStates of custom checks.
 messageSentStatesDirectory = os.path.join(os.path.dirname(__file__), "..", "..", "messageSentStates/")
 
-# Config file.
-config_file_pathAndName = os.path.join(os.path.dirname(__file__), "..", "..", "config/", "config.txt")
-config_file = open(config_file_pathAndName)
-config_array = json.load(config_file)
-
+_config = watchdogConfig.get_config()
 
 # Get states of tools that are being checked by sending their own alive message to api.
 # Returns Array of ToolStateItems. See models for further information.
@@ -55,7 +52,7 @@ def getToolStates_api():
 
             # Has the state info been sent within the desired amount of time?
             if int(toolToCheck.lastTimeToolWasUp) + int(toolToCheck.stateCheckFrequency_inMinutes) * 60 + int(
-                    config_array["toolsUsingApi_tolerancePeriod_inSeconds"]) < now:
+                    _config.thresholds.get("toolsUsingApi_tolerancePeriod_inSeconds", 100)) < now:
 
                 # No valid state check withing desired timespan.
 
@@ -139,7 +136,7 @@ def getToolStates_websites():
     toolStateItems = []
 
     # Check all website urls.
-    urls = config_array["websites"]["websitesToCheck"]
+    urls = _config.thresholds.get("websites", {}).get("websitesToCheck", [])
     for url in urls:
 
         # Check website states.
@@ -255,7 +252,7 @@ def updateGoogleDriveFolderBackupChecks():
     service = build('drive', 'v3', credentials=credentials)
 
     # Check all Google Drive folders of config.
-    googleDriveFoldersToCheck = config_array["googleDrive"]["foldersToCheck"]
+    googleDriveFoldersToCheck = _config.thresholds.get("googleDrive", {}).get("foldersToCheck", [])
     for googleDriveFolder in googleDriveFoldersToCheck:
 
         items = []

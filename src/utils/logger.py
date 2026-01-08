@@ -18,11 +18,6 @@ class Logger:
 	# Constructor creating logfiles and paths.
 	def __init__(self, logScope="check_tools"):
 
-		# Get config .
-		config_file_pathAndName = os.path.join(os.path.dirname(__file__), "..", "..", "config/", "config.txt")
-		config_file = open(config_file_pathAndName)
-		config_array = json.load(config_file)
-
 		# What am I logging stuff for?
 		if logScope == "check_tools":
 			self.logtext_info = "TOOLCHECKER_INFO"

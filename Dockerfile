@@ -22,10 +22,10 @@ COPY . /code
 RUN rm -rf \
     /code/.git \
     /code/.idea \
-    /code/config/config.txt \
     /code/logs \
     /code/serverInfo \
     /code/docker-compose.yml \
+    /code/watchdog.env \
     && mkdir -p /code/logs/dayBased \
     && mkdir -p /code/serverInfo \
     && chmod 755 /code/docker/entrypoint.sh || true

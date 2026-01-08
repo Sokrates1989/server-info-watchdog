@@ -95,6 +95,16 @@ infer_registry() {
   return 1
 }
 
+sed_in_place() {
+  local expr="$1"
+  local file="$2"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "$expr" "$file"
+  else
+    sed -i "$expr" "$file"
+  fi
+}
+
 registry_login_flow() {
   local registry="$1"
   local target=""
@@ -214,31 +224,46 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     echo "✅ Image built successfully: $FULL_IMAGE"
     echo ""
 
-    echo ""
-    echo "📤 Pushing to registry..."
-    registry="$(infer_registry "$IMAGE_NAME" || true)"
-    push_with_login_retry "$FULL_IMAGE" "$registry" || exit 1
-    echo "✅ Image pushed successfully"
+    do_push="${SKIP_PUSH:-}"
+    if [ -z "$do_push" ]; then
+        read -r -p "Push to registry? (Y/n): " do_push
+    fi
 
-    # Also tag and push as latest if version is not latest
-    if [ "$IMAGE_VERSION" != "latest" ]; then
+    if [[ ! "$do_push" =~ ^[Nn]$ ]] && [[ ! "$do_push" =~ ^(1|true|yes|y|on)$ ]]; then
+        # default is yes on empty input
+        do_push="y"
+    fi
+
+    if [[ "$do_push" =~ ^[Nn]$ ]]; then
         echo ""
-        echo "📤 Tagging and pushing ${IMAGE_NAME}:latest..."
-        docker tag "$FULL_IMAGE" "${IMAGE_NAME}:latest"
-        push_with_login_retry "${IMAGE_NAME}:latest" "$registry" || exit 1
-        echo "✅ Also pushed as ${IMAGE_NAME}:latest"
+        echo "ℹ️  Skipping push. Image is available locally as: $FULL_IMAGE"
+    else
+        echo ""
+        echo "📤 Pushing to registry..."
+        registry="$(infer_registry "$IMAGE_NAME" || true)"
+        push_with_login_retry "$FULL_IMAGE" "$registry" || exit 1
+        echo "✅ Image pushed successfully"
+
+        # Also tag and push as latest if version is not latest
+        if [ "$IMAGE_VERSION" != "latest" ]; then
+            echo ""
+            echo "📤 Tagging and pushing ${IMAGE_NAME}:latest..."
+            docker tag "$FULL_IMAGE" "${IMAGE_NAME}:latest"
+            push_with_login_retry "${IMAGE_NAME}:latest" "$registry" || exit 1
+            echo "✅ Also pushed as ${IMAGE_NAME}:latest"
+        fi
     fi
     
     # Update .env with new version
     if [ -f .env ]; then
         if grep -q '^IMAGE_NAME=' .env; then
-            sed -i "s|^IMAGE_NAME=.*|IMAGE_NAME=$IMAGE_NAME|" .env
+            sed_in_place "s|^IMAGE_NAME=.*|IMAGE_NAME=$IMAGE_NAME|" .env
         else
             echo "IMAGE_NAME=$IMAGE_NAME" >> .env
         fi
         
         if grep -q '^IMAGE_VERSION=' .env; then
-            sed -i "s|^IMAGE_VERSION=.*|IMAGE_VERSION=$IMAGE_VERSION|" .env
+            sed_in_place "s|^IMAGE_VERSION=.*|IMAGE_VERSION=$IMAGE_VERSION|" .env
         else
             echo "IMAGE_VERSION=$IMAGE_VERSION" >> .env
         fi

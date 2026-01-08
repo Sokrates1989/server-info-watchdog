@@ -15,31 +15,12 @@ read_prompt() {
     fi
 }
 
-handle_watchdog_start() {
-    local compose_file="$1"
-    
-    echo "🔍 Starting Server Info Watchdog..."
-    echo ""
-    docker compose --env-file .env -f "$compose_file" up --build
-}
-
-handle_watchdog_start_detached() {
-    local compose_file="$1"
-    
-    echo "🔍 Starting Server Info Watchdog (detached)..."
-    echo ""
-    docker compose --env-file .env -f "$compose_file" up --build -d
-    echo ""
-    echo "✅ Service started in background"
-    echo "📋 View logs with: docker compose --env-file .env -f $compose_file logs -f"
-}
-
 handle_run_once() {
     local compose_file="$1"
     
     echo "🔍 Running watchdog check once..."
     echo ""
-    docker compose --env-file .env -f "$compose_file" run --rm watchdog python src/check_server.py
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" run --rm --build watchdog python src/check_server.py
     echo ""
     echo "✅ Check completed"
 }
@@ -50,7 +31,7 @@ handle_docker_compose_down() {
     echo "🛑 Stopping containers..."
     echo "   Using compose file: $compose_file"
     echo ""
-    docker compose --env-file .env -f "$compose_file" down --remove-orphans
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" down --remove-orphans
     echo ""
     echo "✅ Containers stopped"
 }
@@ -65,11 +46,78 @@ handle_build_image() {
     fi
 }
 
+handle_build_web_image() {
+    echo "🏗️  Building web UI Docker image..."
+    echo ""
+    if [ -f "build-image/build-web-image.sh" ]; then
+        bash build-image/build-web-image.sh
+    else
+        echo "❌ build-image/build-web-image.sh not found"
+    fi
+}
+
+handle_start_web_ui() {
+    local compose_file="$1"
+    
+    # Check if admin token is set
+    # Load .env values if they exist for this check
+    if [ -f ".env" ]; then
+        # Use grep/sed to avoid shell variable export issues
+        local token=$(grep "^WATCHDOG_ADMIN_TOKEN=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+        if [ -z "$token" ]; then
+            echo "⚠️  WARNING: WATCHDOG_ADMIN_TOKEN is not set in .env"
+            echo "   The Web UI will start, but login will fail with 'Admin token not configured'."
+            echo "   Please set a secure token in .env and restart."
+            echo ""
+            read_prompt "Continue anyway? (y/N): " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                echo "Aborting."
+                return
+            fi
+        fi
+    fi
+
+    echo "🌐 Starting Web UI..."
+    echo "   This will start the admin API and web interface."
+    echo ""
+
+    # Force a clean slate
+    echo "🧹 Cleaning up old containers..."
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" --profile web down > /dev/null 2>&1
+
+    if command -v show_relevant_pages_delayed >/dev/null 2>&1; then
+        show_relevant_pages_delayed "$compose_file" 120
+    fi
+
+    local detach_flag=""
+    if [ "${WATCHDOG_WEB_DETACHED:-false}" = "true" ]; then
+        detach_flag="-d"
+    fi
+
+    echo "🏗️  Building containers (no-cache)..."
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" --profile web build --no-cache admin-api web
+    
+    echo "🚀 Launching services..."
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" --profile web up $detach_flag --force-recreate admin-api web
+    echo ""
+    echo "✅ Web UI started at http://localhost:${WEB_PORT:-8080}"
+    echo "   Use WATCHDOG_ADMIN_TOKEN from .env to login."
+}
+
+handle_stop_web_ui() {
+    local compose_file="$1"
+    
+    echo "🛑 Stopping Web UI..."
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" --profile web down
+    echo ""
+    echo "✅ Web UI stopped"
+}
+
 handle_view_logs() {
     local compose_file="$1"
     
     echo "📋 Viewing logs..."
-    docker compose --env-file .env -f "$compose_file" logs -f
+    COMPOSE_FILE= docker compose --env-file .env -f "$compose_file" logs -f
 }
 
 show_main_menu() {
@@ -81,8 +129,6 @@ show_main_menu() {
 
     while true; do
         local MENU_NEXT=1
-        local MENU_RUN_START=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
-        local MENU_RUN_START_DETACHED=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
         local MENU_RUN_ONCE=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
 
         local MENU_MONITOR_LOGS=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
@@ -91,41 +137,38 @@ show_main_menu() {
 
         local MENU_BUILD_IMAGE=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
 
+        local MENU_START_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+        local MENU_STOP_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+        local MENU_BUILD_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+
         local MENU_EXIT=$MENU_NEXT
 
         echo ""
         echo "================ Main Menu ================"
         echo ""
-        echo "Run:"
-        echo "  ${MENU_RUN_START}) Start Watchdog (docker compose up)"
-        echo "  ${MENU_RUN_START_DETACHED}) Start Watchdog detached (background)"
+        echo "Watchdog:"
         echo "  ${MENU_RUN_ONCE}) Run check once"
-        echo ""
-        echo "Monitoring:"
         echo "  ${MENU_MONITOR_LOGS}) View logs"
+        echo "  ${MENU_MAINT_DOWN}) Docker Compose Down (stop all containers)"
+        echo "  ${MENU_BUILD_IMAGE}) Build Watchdog Docker Image"
         echo ""
-        echo "Maintenance:"
-        echo "  ${MENU_MAINT_DOWN}) Docker Compose Down (stop containers)"
-        echo ""
-        echo "Build:"
-        echo "  ${MENU_BUILD_IMAGE}) Build Production Docker Image"
+        echo "Web UI:"
+        echo "  ${MENU_START_WEB}) Start Web UI (admin interface)"
+        echo "  ${MENU_STOP_WEB}) Stop Web UI"
+        echo "  ${MENU_BUILD_WEB}) Build Web UI Docker Image"
         echo ""
         echo "  ${MENU_EXIT}) Exit"
         echo ""
 
-        read_prompt "Your choice (1-${MENU_EXIT}): " choice
+        if [ -n "${QUICK_START_CHOICE:-}" ]; then
+            choice="${QUICK_START_CHOICE}"
+            echo "Your choice (1-${MENU_EXIT}): ${choice}"
+            unset QUICK_START_CHOICE
+        else
+            read_prompt "Your choice (1-${MENU_EXIT}): " choice
+        fi
 
         case $choice in
-          ${MENU_RUN_START})
-            handle_watchdog_start "$compose_file"
-            summary_msg="Watchdog started"
-            break
-            ;;
-          ${MENU_RUN_START_DETACHED})
-            handle_watchdog_start_detached "$compose_file"
-            summary_msg="Watchdog started in background"
-            break
-            ;;
           ${MENU_RUN_ONCE})
             handle_run_once "$compose_file"
             summary_msg="Check executed"
@@ -144,6 +187,21 @@ show_main_menu() {
           ${MENU_BUILD_IMAGE})
             handle_build_image
             summary_msg="Image build executed"
+            break
+            ;;
+          ${MENU_START_WEB})
+            handle_start_web_ui "$compose_file"
+            summary_msg="Web UI started"
+            break
+            ;;
+          ${MENU_STOP_WEB})
+            handle_stop_web_ui "$compose_file"
+            summary_msg="Web UI stopped"
+            break
+            ;;
+          ${MENU_BUILD_WEB})
+            handle_build_web_image
+            summary_msg="Web image build executed"
             break
             ;;
           ${MENU_EXIT})

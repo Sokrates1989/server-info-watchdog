@@ -1,8 +1,9 @@
 # Do not version IDE .
 .idea
 
-# Do not version config.txt .
-config/config.txt
+# Do not version local environment configuration.
+.env
+watchdog.env
 
 # Do not version logs. 
 logs/*

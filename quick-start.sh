@@ -14,6 +14,7 @@ SETUP_DIR="${SCRIPT_DIR}/setup"
 
 # Source modules
 source "${SETUP_DIR}/modules/docker_helpers.sh"
+source "${SETUP_DIR}/modules/browser_helpers.sh"
 source "${SETUP_DIR}/modules/menu_handlers.sh"
 
 echo "🔍 Server Info Watchdog - Quick Start"

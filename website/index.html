@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Info Watchdog - Admin</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Server Info Watchdog</h1>
+            <p class="subtitle">Configuration Manager</p>
+        </header>
+        
+        <!-- Global Status Messages -->
+        <div id="status-message" class="status hidden"></div>
+
+        <!-- Login Section -->
+        <section id="login-section" class="card">
+            <h2>Authentication</h2>
+            <div class="form-group">
+                <label for="admin-token">Admin Token</label>
+                <input type="password" id="admin-token" placeholder="Enter your admin token">
+            </div>
+            <button id="login-btn" class="btn btn-primary">Login</button>
+            <p id="login-error" class="error hidden"></p>
+        </section>
+
+        <!-- Config Section (hidden until authenticated) -->
+        <section id="config-section" class="hidden">
+            <!-- Actions -->
+            <div class="card actions">
+                <button id="save-btn" class="btn btn-primary">Save Configuration</button>
+                <button id="reload-btn" class="btn btn-secondary">Reload from Server</button>
+                <button id="logout-btn" class="btn btn-danger">Logout</button>
+            </div>
+
+            <!-- Server Settings -->
+            <div class="card">
+                <h2>Server Settings</h2>
+                <div class="form-group">
+                    <label for="server-name">Server Name</label>
+                    <input type="text" id="server-name" placeholder="e.g., My-Server-1">
+                </div>
+                <div class="form-group">
+                    <label for="gluster-handling">Gluster Not Installed Handling</label>
+                    <select id="gluster-handling">
+                        <option value="error">Error</option>
+                        <option value="warning">Warning</option>
+                        <option value="none">None (Ignore)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Telegram Chat IDs -->
+            <div class="card">
+                <h2>Telegram Chat IDs</h2>
+                <p class="hint">Comma-separated list of chat IDs (use negative numbers for groups)</p>
+                <div class="form-group">
+                    <label for="error-chat-ids">Error Chat IDs</label>
+                    <input type="text" id="error-chat-ids" placeholder="-123456789">
+                </div>
+                <div class="form-group">
+                    <label for="warning-chat-ids">Warning Chat IDs</label>
+                    <input type="text" id="warning-chat-ids" placeholder="-123456789">
+                </div>
+                <div class="form-group">
+                    <label for="info-chat-ids">Info Chat IDs</label>
+                    <input type="text" id="info-chat-ids" placeholder="-123456789">
+                </div>
+            </div>
+
+            <!-- Message Frequency -->
+            <div class="card">
+                <h2>Message Frequency</h2>
+                <p class="hint">How often to send messages of each type (e.g., 1h, 1d, 3d)</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="freq-info">Info</label>
+                        <input type="text" id="freq-info" placeholder="1h">
+                    </div>
+                    <div class="form-group">
+                        <label for="freq-warning">Warning</label>
+                        <input type="text" id="freq-warning" placeholder="1d">
+                    </div>
+                    <div class="form-group">
+                        <label for="freq-error">Error</label>
+                        <input type="text" id="freq-error" placeholder="3d">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thresholds -->
+            <div class="card">
+                <h2>Thresholds</h2>
+                <p class="hint">Warning and error thresholds for each metric</p>
+                
+                <div class="threshold-grid" id="thresholds-container">
+                    <!-- Thresholds will be dynamically populated -->
+                </div>
+                
+                <button id="reset-thresholds-btn" class="btn btn-secondary">Reset to Defaults</button>
+            </div>
+        </section>
+
+        <footer>
+            <p>Server Info Watchdog Admin UI</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

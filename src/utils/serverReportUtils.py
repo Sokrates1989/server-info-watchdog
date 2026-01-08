@@ -14,17 +14,13 @@ from enum import Enum
 ## Own classes.
 from serverReport import ServerReport
 import timeStringUtils
+from watchdogConfig import get_config, Thresholds
 
 class MessagingPlatform(Enum):
     DEFAULT = "Default"
     EMAIL = "Email"
     TELEGRAM = "Telegram"
 
-
-class Thresholds:
-    def __init__(self, warning: str, error: str):
-        self.warning = warning
-        self.error = error
 
 class ThresholdStatus(Enum):
     OK = "OK"
@@ -35,23 +31,16 @@ class ThresholdStatus(Enum):
 class ServerReportUtils:
     def __init__(self):
 
-        # Read config.
-        try:
-            # Config file.
-            config_file_path_and_name = os.path.join(os.path.dirname(__file__), "..", "..", "config/", "config.txt")
-            with open(config_file_path_and_name) as config_file:
-                self.config_array = json.load(config_file)
+        # Load config from environment/watchdog.env.
+        self._config = get_config()
 
-            # ServerName.
-            self.server_name = os.getenv('serverName') or self.config_array.get('serverName') or "Unknown - Please set serverName in Env or config"
-            self.server_name = self.server_name.strip().strip('"')
+        # ServerName.
+        self.server_name = self._config.server_name
 
-            # Gluster install settings.
-            self.gluster_not_installed_handling = os.getenv('gluster_not_installed_handling') or self.config_array.get('gluster_not_installed_handling') or "not specified"
-            
-        except Exception as e:
-            errorMessage = f"\nCould not read config/config.txt: {e} \nDid you map the config directory? \n"
-            raise Exception(errorMessage)
+        # Gluster install settings.
+        self.gluster_not_installed_handling = self._config.gluster_not_installed_handling
+        if not self.gluster_not_installed_handling:
+            self.gluster_not_installed_handling = "not specified"
 
         
         # Server info file.
@@ -501,7 +490,12 @@ class ServerReportUtils:
 
 
     def get_thresholds(self, thresholds_key: str) -> Thresholds:
-        # Helper function to get the thresholds from the config
-        warning = self.config_array['thresholds'][thresholds_key]['warning']
-        error = self.config_array['thresholds'][thresholds_key]['error']
-        return Thresholds(warning, error)
+        """Get threshold values for a specific metric from config.
+
+        Args:
+            thresholds_key (str): Threshold key (e.g., 'cpu', 'disk').
+
+        Returns:
+            Thresholds: Object with warning and error threshold values.
+        """
+        return self._config.get_thresholds(thresholds_key)
