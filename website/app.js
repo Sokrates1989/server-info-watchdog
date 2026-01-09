@@ -136,13 +136,6 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     return data;
 }
 
-async function loadConfig() {
-    const data = await apiCall('/config');
-    currentConfig = data.config;
-    populateForm(currentConfig);
-    showStatus('Configuration loaded', 'success');
-}
-
 async function loadDefaults() {
     const data = await apiCall('/config/defaults');
     defaultConfig = data.defaults;
@@ -416,7 +409,7 @@ async function loadSystemState() {
 async function loadConfig() {
     try {
         const [configResponse, systemState] = await Promise.all([
-            apiCall('/v1/admin/config'),
+            apiCall('/config'),
             loadSystemState()
         ]);
         
@@ -441,6 +434,7 @@ async function loadConfig() {
             populateThresholds(config.thresholds || {}, systemState?.current || {});
             
             currentConfig = config;
+            showStatus('Configuration loaded', 'success');
         }
     } catch (error) {
         console.error('Failed to load config:', error);
