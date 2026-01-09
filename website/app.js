@@ -40,6 +40,73 @@ const resetThresholdsBtn = document.getElementById('reset-thresholds-btn');
 const statusMessage = document.getElementById('status-message');
 const thresholdsContainer = document.getElementById('thresholds-container');
 
+// Load and initialize action buttons
+async function loadActionsComponent() {
+    try {
+        const response = await fetch('/actions.html');
+        const actionsHtml = await response.text();
+        
+        // Insert actions HTML in both locations
+        const actionsTop = document.getElementById('actions-top');
+        const actionsBottom = document.getElementById('actions-bottom');
+        
+        if (actionsTop) {
+            actionsTop.innerHTML = actionsHtml;
+        }
+        if (actionsBottom) {
+            actionsBottom.innerHTML = actionsHtml;
+        }
+        
+        // Re-attach event listeners to all action buttons
+        attachActionListeners();
+        
+    } catch (error) {
+        console.error('Failed to load actions component:', error);
+        // Fallback: create actions manually
+        createActionsFallback();
+    }
+}
+
+// Create fallback actions if fetch fails
+function createActionsFallback() {
+    const actionsHtml = `
+        <div class="card actions">
+            <button id="save-btn" class="btn btn-primary">Save Configuration</button>
+            <button id="reload-btn" class="btn btn-secondary">Reload from Server</button>
+            <button id="logout-btn" class="btn btn-danger">Logout</button>
+        </div>
+    `;
+    
+    const actionsTop = document.getElementById('actions-top');
+    const actionsBottom = document.getElementById('actions-bottom');
+    
+    if (actionsTop) actionsTop.innerHTML = actionsHtml;
+    if (actionsBottom) actionsBottom.innerHTML = actionsHtml;
+    
+    attachActionListeners();
+}
+
+// Attach event listeners to action buttons
+function attachActionListeners() {
+    // Get all action buttons (both top and bottom)
+    const saveBtns = document.querySelectorAll('#save-btn');
+    const reloadBtns = document.querySelectorAll('#reload-btn');
+    const logoutBtns = document.querySelectorAll('#logout-btn');
+    
+    // Attach event listeners to all instances
+    saveBtns.forEach(btn => {
+        btn.addEventListener('click', saveConfig);
+    });
+    
+    reloadBtns.forEach(btn => {
+        btn.addEventListener('click', loadConfig);
+    });
+    
+    logoutBtns.forEach(btn => {
+        btn.addEventListener('click', handleLogout);
+    });
+}
+
 // API Functions
 async function apiCall(endpoint, method = 'GET', body = null) {
     const options = {
@@ -261,6 +328,8 @@ function showLogin() {
 function showConfig() {
     loginSection.classList.add('hidden');
     configSection.classList.remove('hidden');
+    // Load actions component after showing config
+    loadActionsComponent();
 }
 
 // Event Handlers
@@ -333,7 +402,7 @@ async function loadVersion() {
 // Load current system state
 async function loadSystemState() {
     try {
-        const response = await apiCall('/v1/admin/system-state');
+        const response = await apiCall('/system-state');
         if (response.success) {
             return response.data;
         }
@@ -392,15 +461,13 @@ function init() {
         handleLogin();
     }
 
-    // Event listeners
+    // Event listeners for login form
     loginBtn.addEventListener('click', handleLogin);
     adminTokenInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
     });
 
-    saveBtn.addEventListener('click', saveConfig);
-    reloadBtn.addEventListener('click', loadConfig);
-    logoutBtn.addEventListener('click', handleLogout);
+    // Reset thresholds button
     resetThresholdsBtn.addEventListener('click', handleResetThresholds);
     
     // Add refresh current values button

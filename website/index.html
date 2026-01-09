@@ -29,12 +29,8 @@
 
         <!-- Config Section (hidden until authenticated) -->
         <section id="config-section" class="hidden">
-            <!-- Actions -->
-            <div class="card actions">
-                <button id="save-btn" class="btn btn-primary">Save Configuration</button>
-                <button id="reload-btn" class="btn btn-secondary">Reload from Server</button>
-                <button id="logout-btn" class="btn btn-danger">Logout</button>
-            </div>
+            <!-- Actions (Top) - will be loaded by JavaScript -->
+            <div id="actions-top"></div>
 
             <!-- Server Settings -->
             <div class="card">
@@ -103,14 +99,11 @@
                 <button id="reset-thresholds-btn" class="btn btn-secondary">Reset to Defaults</button>
                 <button id="refresh-current-btn" class="btn btn-info">Refresh Current Values</button>
             </div>
-        </section>
 
-        <!-- Actions -->
-        <div class="card actions">
-            <button id="save-btn" class="btn btn-primary">Save Configuration</button>
-            <button id="reload-btn" class="btn btn-secondary">Reload from Server</button>
-            <button id="logout-btn" class="btn btn-danger">Logout</button>
-        </div>
+            <!-- Actions (Bottom) - will be loaded by JavaScript -->
+            <div id="actions-bottom"></div>
+            
+        </section>
 
         <footer>
             <p>Server Info Watchdog Admin | Web: <span id="webVersion">loading...</span></p>
