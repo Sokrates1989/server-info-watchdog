@@ -62,25 +62,103 @@ handle_build_and_push_all_images() {
     # Images:
     # - ${IMAGE_NAME}:${IMAGE_VERSION} (python image used by watchdog + admin-api)
     # - ${WEB_IMAGE_NAME}:${WEB_IMAGE_VERSION} (nginx web UI)
-    echo "🏗️  Build & Push ALL images"
+    echo "🏗️  Build & Push ALL images (auto-push enabled)"
     echo ""
-
-    handle_build_image
+    
+    # Read current values from .env files
+    local main_image_name="sokrates1989/server-info-watchdog"
+    local main_image_version="latest"
+    local web_image_name="sokrates1989/server-info-watchdog-web"
+    local web_image_version="latest"
+    
+    # Load main image defaults from .env if it exists
+    if [ -f .env ]; then
+        main_image_name=$(grep "^IMAGE_NAME=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "$main_image_name")
+        main_image_version=$(grep "^IMAGE_VERSION=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "$main_image_version")
+    fi
+    
+    # Load web image defaults from .ci.env if it exists
+    local ci_env_file=".ci.env"
+    if [ -f "$ci_env_file" ]; then
+        web_image_version=$(grep "^IMAGE_VERSION=" "$ci_env_file" 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "$web_image_version")
+    fi
+    
+    echo "📋 Configure all images to build and push:"
+    echo ""
+    
+    # Collect main image information
+    read -p "Main image name [$main_image_name]: " input_main_name
+    main_image_name="${input_main_name:-$main_image_name}"
+    
+    if [ -z "$main_image_name" ]; then
+        echo "❌ Main image name is required"
+        return 1
+    fi
+    
+    read -p "Main image version [$main_image_version]: " input_main_version
+    main_image_version="${input_main_version:-$main_image_version}"
+    
+    if [ -z "$main_image_version" ]; then
+        main_image_version="latest"
+    fi
+    
+    echo ""
+    
+    # Collect web image information
+    read -p "Web image name [$web_image_name]: " input_web_name
+    web_image_name="${input_web_name:-$web_image_name}"
+    
+    if [ -z "$web_image_name" ]; then
+        echo "❌ Web image name is required"
+        return 1
+    fi
+    
+    read -p "Web image version [$web_image_version]: " input_web_version
+    web_image_version="${input_web_version:-$web_image_version}"
+    
+    if [ -z "$web_image_version" ]; then
+        web_image_version="latest"
+    fi
+    
+    echo ""
+    echo "📦 Will build and push:"
+    echo "   - ${main_image_name}:${main_image_version}"
+    echo "   - ${main_image_name}:latest"
+    echo "   - ${web_image_name}:${web_image_version}"
+    echo "   - ${web_image_name}:latest"
+    echo ""
+    
+    read -p "Proceed with build and push? (Y/n): " confirm_proceed
+    if [[ "$confirm_proceed" =~ ^[Nn]$ ]]; then
+        echo "❌ Build cancelled"
+        return 1
+    fi
+    
+    echo ""
+    echo "🚀 Starting build and push process..."
+    echo ""
+    
+    # Build and push main image with environment variables
+    echo "🏗️  Building main image..."
+    IMAGE_NAME="$main_image_name" IMAGE_VERSION="$main_image_version" bash build-image/build-image.sh
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
+        echo "❌ Main image build failed"
         return $exit_code
     fi
-
+    
     echo ""
-    handle_build_web_image
+    echo "🏗️  Building web image..."
+    IMAGE_NAME="$web_image_name" IMAGE_VERSION="$web_image_version" bash build-image/build-web-image.sh
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
+        echo "❌ Web image build failed"
         return $exit_code
     fi
 
     echo ""
-    echo "✅ All image builds finished"
- }
+    echo "✅ All images built and pushed successfully"
+}
 
 handle_start_web_ui() {
     local compose_file="$1"

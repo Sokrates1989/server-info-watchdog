@@ -28,58 +28,84 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}=============================================${NC}"
-echo -e "${GREEN}Server Info Watchdog Web UI - Image Builder${NC}"
+echo -e "${GREEN}Server Info Watchdog Web UI - Build & Push${NC}"
 echo -e "${GREEN}=============================================${NC}"
 echo ""
 
-# Prompt for version
-read -rp "Enter image version [${IMAGE_VERSION}]: " input_version
-IMAGE_VERSION="${input_version:-$IMAGE_VERSION}"
+# Use environment variables if provided, otherwise prompt
+if [ -n "$IMAGE_NAME" ]; then
+    web_image_name="$IMAGE_NAME"
+else
+    # Prompt for image name
+    read -rp "Docker image name [${IMAGE_NAME}]: " input_name
+    web_image_name="${input_name:-$IMAGE_NAME}"
+    
+    if [ -z "$web_image_name" ]; then
+        echo "❌ Image name is required"
+        exit 1
+    fi
+fi
+
+if [ -n "$IMAGE_VERSION" ]; then
+    web_image_version="$IMAGE_VERSION"
+else
+    # Prompt for version
+    read -rp "Enter image version [${IMAGE_VERSION}]: " input_version
+    web_image_version="${input_version:-$IMAGE_VERSION}"
+    
+    if [ -z "$web_image_version" ]; then
+        web_image_version="latest"
+    fi
+fi
+
+IMAGE_NAME="$web_image_name"
+IMAGE_VERSION="$web_image_version"
+FULL_IMAGE="${IMAGE_NAME}:${IMAGE_VERSION}"
+LATEST_IMAGE="${IMAGE_NAME}:latest"
 
 echo ""
-echo -e "Building: ${YELLOW}${IMAGE_NAME}:${IMAGE_VERSION}${NC}"
+echo "📦 Will build and push:"
+echo "   - $FULL_IMAGE"
+echo "   - $LATEST_IMAGE"
+echo ""
+echo "🚀 Starting build and push process..."
 echo ""
 
-# Build the image
+# Build the image with both tags
 cd "$PROJECT_ROOT"
 
+echo "📦 Building with tags: $FULL_IMAGE and $LATEST_IMAGE"
 docker build \
     -f Dockerfile_web \
     --build-arg IMAGE_TAG="$IMAGE_VERSION" \
-    -t "${IMAGE_NAME}:${IMAGE_VERSION}" \
-    -t "${IMAGE_NAME}:latest" \
+    -t "$FULL_IMAGE" \
+    -t "$LATEST_IMAGE" \
     .
 
 echo ""
 echo -e "${GREEN}Build complete!${NC}"
 echo ""
 
-# Ask about pushing
-if [ "${SKIP_PUSH:-false}" = "true" ]; then
-    echo -e "${YELLOW}Skipping push (SKIP_PUSH=true)${NC}"
-    exit 0
-fi
+# Auto-push both tags
+echo "📤 Auto-pushing to registry..."
 
-read -rp "Push image to registry? [y/N]: " push_confirm
-if [[ "$push_confirm" =~ ^[Yy]$ ]]; then
-    echo ""
-    echo "Pushing ${IMAGE_NAME}:${IMAGE_VERSION}..."
-    
-    # Push with retry on auth failure
-    push_image() {
-        if ! docker push "${IMAGE_NAME}:$1" 2>&1; then
-            echo -e "${RED}Push failed. Attempting docker login...${NC}"
-            docker login
-            docker push "${IMAGE_NAME}:$1"
-        fi
-    }
-    
-    push_image "$IMAGE_VERSION"
-    push_image "latest"
-    
-    echo ""
-    echo -e "${GREEN}Push complete!${NC}"
-fi
+# Push with retry on auth failure
+push_image() {
+    local tag="$1"
+    echo "📤 Pushing: ${IMAGE_NAME}:${tag}"
+    if ! docker push "${IMAGE_NAME}:${tag}" 2>&1; then
+        echo -e "${RED}Push failed. Attempting docker login...${NC}"
+        docker login
+        docker push "${IMAGE_NAME}:${tag}"
+    fi
+    echo "✅ Pushed: ${IMAGE_NAME}:${tag}"
+}
+
+push_image "$IMAGE_VERSION"
+push_image "latest"
+
+echo ""
+echo -e "${GREEN}All images pushed successfully!${NC}"
 
 # Update .ci.env with new version
 if [ -f "$CI_ENV_FILE" ]; then

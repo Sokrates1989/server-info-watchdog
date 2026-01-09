@@ -33,37 +33,61 @@ if [ "$GIT_UTILS_LOADED" = true ]; then
     fi
 fi
 
-# Read current values from .env
-if [ -f .env ]; then
-    IMAGE_NAME=$(grep "^IMAGE_NAME=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "")
-    IMAGE_VERSION=$(grep "^IMAGE_VERSION=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "")
+echo ""
+echo "🏗️  Build & Push ALL images (auto-push enabled)"
+echo ""
+
+# Use environment variables if provided, otherwise prompt
+if [ -n "$IMAGE_NAME" ]; then
+    main_image_name="$IMAGE_NAME"
+else
+    # Read current values from .env
+    if [ -f .env ]; then
+        main_image_name=$(grep "^IMAGE_NAME=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "")
+    fi
+    
+    # Set defaults if not found
+    main_image_name="${main_image_name:-sokrates1989/server-info-watchdog}"
+    
+    # Prompt for image name
+    read -p "Docker image name [$main_image_name]: " input_name
+    main_image_name="${input_name:-$main_image_name}"
+    
+    if [ -z "$main_image_name" ]; then
+        echo "❌ Image name is required"
+        exit 1
+    fi
 fi
 
-# Set defaults if not found
-IMAGE_NAME="${IMAGE_NAME:-sokrates1989/server-info-watchdog}"
-IMAGE_VERSION="${IMAGE_VERSION:-latest}"
-
-# Prompt for image name
-read -p "Docker image name [$IMAGE_NAME]: " input_name
-IMAGE_NAME="${input_name:-$IMAGE_NAME}"
-
-if [ -z "$IMAGE_NAME" ]; then
-    echo "❌ Image name is required"
-    exit 1
+if [ -n "$IMAGE_VERSION" ]; then
+    main_image_version="$IMAGE_VERSION"
+else
+    # Read current values from .env
+    if [ -f .env ]; then
+        main_image_version=$(grep "^IMAGE_VERSION=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' "' || echo "")
+    fi
+    
+    # Set defaults if not found
+    main_image_version="${main_image_version:-latest}"
+    
+    # Prompt for version
+    read -p "Image version [$main_image_version]: " input_version
+    main_image_version="${input_version:-$main_image_version}"
+    
+    if [ -z "$main_image_version" ]; then
+        main_image_version="latest"
+    fi
 fi
 
-# Prompt for version
-read -p "Image version [$IMAGE_VERSION]: " input_version
-IMAGE_VERSION="${input_version:-$IMAGE_VERSION}"
-
-if [ -z "$IMAGE_VERSION" ]; then
-    IMAGE_VERSION="latest"
-fi
-
+IMAGE_NAME="$main_image_name"
+IMAGE_VERSION="$main_image_version"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_VERSION}"
+LATEST_IMAGE="${IMAGE_NAME}:latest"
 
 echo ""
-echo "📦 Building: $FULL_IMAGE"
+echo "📦 Will build and push:"
+echo "   - $FULL_IMAGE"
+echo "   - $LATEST_IMAGE"
 echo ""
 
 # Determine target platform (default to linux/amd64 for Swarm nodes)
@@ -71,15 +95,19 @@ TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
 
 echo "Target platform: $TARGET_PLATFORM"
 echo ""
+echo "🚀 Starting build and push process..."
+echo ""
 
-# Build the image, capturing output for git corruption detection
+# Build the image with both tags, capturing output for git corruption detection
 BUILD_EXIT_CODE=0
 if docker buildx version >/dev/null 2>&1; then
     echo "📦 Using docker buildx for platform $TARGET_PLATFORM..."
-    BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -t "$FULL_IMAGE" --load . 2>&1) || BUILD_EXIT_CODE=$?
+    echo "   Building with tags: $FULL_IMAGE and $LATEST_IMAGE"
+    BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -t "$FULL_IMAGE" -t "$LATEST_IMAGE" --load . 2>&1) || BUILD_EXIT_CODE=$?
 else
     echo "📦 docker buildx not found, falling back to docker build (host architecture)..."
-    BUILD_OUTPUT=$(docker build -t "$FULL_IMAGE" . 2>&1) || BUILD_EXIT_CODE=$?
+    echo "   Building with tags: $FULL_IMAGE and $LATEST_IMAGE"
+    BUILD_OUTPUT=$(docker build -t "$FULL_IMAGE" -t "$LATEST_IMAGE" . 2>&1) || BUILD_EXIT_CODE=$?
 fi
 
 echo "$BUILD_OUTPUT"
@@ -223,36 +251,23 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     echo ""
     echo "✅ Image built successfully: $FULL_IMAGE"
     echo ""
-
-    do_push="${SKIP_PUSH:-}"
-    if [ -z "$do_push" ]; then
-        read -r -p "Push to registry? (Y/n): " do_push
-    fi
-
-    if [[ ! "$do_push" =~ ^[Nn]$ ]] && [[ ! "$do_push" =~ ^(1|true|yes|y|on)$ ]]; then
-        # default is yes on empty input
-        do_push="y"
-    fi
-
-    if [[ "$do_push" =~ ^[Nn]$ ]]; then
-        echo ""
-        echo "ℹ️  Skipping push. Image is available locally as: $FULL_IMAGE"
-    else
-        echo ""
-        echo "📤 Pushing to registry..."
-        registry="$(infer_registry "$IMAGE_NAME" || true)"
-        push_with_login_retry "$FULL_IMAGE" "$registry" || exit 1
-        echo "✅ Image pushed successfully"
-
-        # Also tag and push as latest if version is not latest
-        if [ "$IMAGE_VERSION" != "latest" ]; then
-            echo ""
-            echo "📤 Tagging and pushing ${IMAGE_NAME}:latest..."
-            docker tag "$FULL_IMAGE" "${IMAGE_NAME}:latest"
-            push_with_login_retry "${IMAGE_NAME}:latest" "$registry" || exit 1
-            echo "✅ Also pushed as ${IMAGE_NAME}:latest"
-        fi
-    fi
+    
+    echo "📤 Auto-pushing to registry..."
+    registry="$(infer_registry "$IMAGE_NAME" || true)"
+    
+    # Push versioned tag
+    echo "📤 Pushing: $FULL_IMAGE"
+    push_with_login_retry "$FULL_IMAGE" "$registry" || exit 1
+    echo "✅ Pushed: $FULL_IMAGE"
+    
+    # Push latest tag (always push, even if version is latest to ensure consistency)
+    echo ""
+    echo "📤 Pushing: $LATEST_IMAGE"
+    push_with_login_retry "$LATEST_IMAGE" "$registry" || exit 1
+    echo "✅ Pushed: $LATEST_IMAGE"
+    
+    echo ""
+    echo "✅ All images pushed successfully"
     
     # Update .env with new version
     if [ -f .env ]; then
