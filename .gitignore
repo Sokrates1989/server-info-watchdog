@@ -11,8 +11,6 @@ logs/*
 !logs/.gitkeep
 !logs/dayBased/.gitkeep
 
-# Do not version serverinfo. 
-serverInfo/*
 # But keep folder structure.
 !serverInfo/.gitkeep
 
