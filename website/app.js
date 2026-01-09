@@ -147,7 +147,8 @@ async function saveConfig() {
         const config = collectFormData();
         await apiCall('/config', 'POST', config);
         showStatus('Configuration saved successfully', 'success');
-        await loadConfig();
+        // Load config silently without showing "Configuration loaded" message
+        await loadConfig(true);
     } catch (error) {
         showStatus(`Failed to save config: ${error.message}`, 'error');
     }
@@ -422,7 +423,7 @@ async function loadSystemState() {
 }
 
 // Load configuration with current values
-async function loadConfig() {
+async function loadConfig(silent = false) {
     try {
         console.log('DEBUG: Starting loadConfig...');
         
@@ -515,7 +516,9 @@ async function loadConfig() {
             populateThresholds(config.thresholds || {}, systemState?.current || {});
             
             currentConfig = config;
-            showStatus('Configuration loaded', 'success');
+            if (!silent) {
+                showStatus('Configuration loaded', 'success');
+            }
             console.log('DEBUG: Configuration loaded successfully');
         } else {
             console.error('DEBUG: Config response not successful:', configResponse);
