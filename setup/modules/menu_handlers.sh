@@ -56,6 +56,32 @@ handle_build_web_image() {
     fi
 }
 
+handle_build_and_push_all_images() {
+    # Builds and pushes all required production images.
+    #
+    # Images:
+    # - ${IMAGE_NAME}:${IMAGE_VERSION} (python image used by watchdog + admin-api)
+    # - ${WEB_IMAGE_NAME}:${WEB_IMAGE_VERSION} (nginx web UI)
+    echo "🏗️  Build & Push ALL images"
+    echo ""
+
+    handle_build_image
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        return $exit_code
+    fi
+
+    echo ""
+    handle_build_web_image
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        return $exit_code
+    fi
+
+    echo ""
+    echo "✅ All image builds finished"
+ }
+
 handle_start_web_ui() {
     local compose_file="$1"
     
@@ -135,11 +161,10 @@ show_main_menu() {
 
         local MENU_MAINT_DOWN=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
 
-        local MENU_BUILD_IMAGE=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+        local MENU_BUILD_ALL=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
 
         local MENU_START_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
         local MENU_STOP_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
-        local MENU_BUILD_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
 
         local MENU_EXIT=$MENU_NEXT
 
@@ -150,12 +175,11 @@ show_main_menu() {
         echo "  ${MENU_RUN_ONCE}) Run check once"
         echo "  ${MENU_MONITOR_LOGS}) View logs"
         echo "  ${MENU_MAINT_DOWN}) Docker Compose Down (stop all containers)"
-        echo "  ${MENU_BUILD_IMAGE}) Build Watchdog Docker Image"
+        echo "  ${MENU_BUILD_ALL}) Build & Push ALL Docker Images"
         echo ""
         echo "Web UI:"
         echo "  ${MENU_START_WEB}) Start Web UI (admin interface)"
         echo "  ${MENU_STOP_WEB}) Stop Web UI"
-        echo "  ${MENU_BUILD_WEB}) Build Web UI Docker Image"
         echo ""
         echo "  ${MENU_EXIT}) Exit"
         echo ""
@@ -184,9 +208,9 @@ show_main_menu() {
             summary_msg="Docker Compose Down executed"
             break
             ;;
-          ${MENU_BUILD_IMAGE})
-            handle_build_image
-            summary_msg="Image build executed"
+          ${MENU_BUILD_ALL})
+            handle_build_and_push_all_images
+            summary_msg="All images built & pushed"
             break
             ;;
           ${MENU_START_WEB})
@@ -197,11 +221,6 @@ show_main_menu() {
           ${MENU_STOP_WEB})
             handle_stop_web_ui "$compose_file"
             summary_msg="Web UI stopped"
-            break
-            ;;
-          ${MENU_BUILD_WEB})
-            handle_build_web_image
-            summary_msg="Web image build executed"
             break
             ;;
           ${MENU_EXIT})

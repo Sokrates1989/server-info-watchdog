@@ -54,6 +54,41 @@ function Build-WebImage {
     }
 }
 
+function Build-AndPushAllImages {
+    <#
+    .SYNOPSIS
+    Builds and pushes all required Docker images for production.
+
+    .DESCRIPTION
+    Builds and pushes:
+    - Python image used by watchdog + admin-api
+    - Web UI nginx image
+
+    Calls the existing build scripts in sequence:
+    - build-image\build-image.ps1
+    - build-image\build-web-image.ps1
+    #>
+    Write-Host "" 
+    Write-Host "[BUILD] Build & Push ALL images" -ForegroundColor Cyan
+    Write-Host "" 
+
+    Build-ProductionImage
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Failed to build/push production image" -ForegroundColor Red
+        return
+    }
+
+    Write-Host "" 
+    Build-WebImage
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Failed to build/push web UI image" -ForegroundColor Red
+        return
+    }
+
+    Write-Host "" 
+    Write-Host "[OK] All image builds finished" -ForegroundColor Green
+}
+
 function Start-WebUI {
     param([string]$ComposeFile)
     
@@ -105,11 +140,10 @@ function Show-MainMenu {
 
     $MENU_MAINT_DOWN = $menuNext; $menuNext++
 
-    $MENU_BUILD_IMAGE = $menuNext; $menuNext++
+    $MENU_BUILD_ALL = $menuNext; $menuNext++
 
     $MENU_START_WEB = $menuNext; $menuNext++
     $MENU_STOP_WEB = $menuNext; $menuNext++
-    $MENU_BUILD_WEB = $menuNext; $menuNext++
 
     $MENU_EXIT = $menuNext
 
@@ -125,13 +159,12 @@ function Show-MainMenu {
     Write-Host "Web UI:" -ForegroundColor Yellow
     Write-Host "  $MENU_START_WEB) Start Web UI (admin interface)" -ForegroundColor Gray
     Write-Host "  $MENU_STOP_WEB) Stop Web UI" -ForegroundColor Gray
-    Write-Host "  $MENU_BUILD_WEB) Build Web UI Docker Image" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "Maintenance:" -ForegroundColor Yellow
     Write-Host "  $MENU_MAINT_DOWN) Docker Compose Down (stop all containers)" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "Build:" -ForegroundColor Yellow
-    Write-Host "  $MENU_BUILD_IMAGE) Build Watchdog Docker Image" -ForegroundColor Gray
+    Write-Host "  $MENU_BUILD_ALL) Build & Push ALL Docker Images" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "  $MENU_EXIT) Exit" -ForegroundColor Gray
     Write-Host ""
@@ -150,9 +183,9 @@ function Show-MainMenu {
             Invoke-DockerComposeDown -ComposeFile $ComposeFile
             $summary = "Docker Compose Down executed"
         }
-        "$MENU_BUILD_IMAGE" {
-            Build-ProductionImage
-            $summary = "Image build executed"
+        "$MENU_BUILD_ALL" {
+            Build-AndPushAllImages
+            $summary = "All images built & pushed"
         }
         "$MENU_START_WEB" {
             Start-WebUI -ComposeFile $ComposeFile
@@ -161,10 +194,6 @@ function Show-MainMenu {
         "$MENU_STOP_WEB" {
             Stop-WebUI -ComposeFile $ComposeFile
             $summary = "Web UI stopped"
-        }
-        "$MENU_BUILD_WEB" {
-            Build-WebImage
-            $summary = "Web image build executed"
         }
         "$MENU_EXIT" {
             Write-Host "Goodbye!" -ForegroundColor Cyan

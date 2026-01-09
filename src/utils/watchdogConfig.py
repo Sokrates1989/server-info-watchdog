@@ -110,6 +110,31 @@ class WatchdogConfig:
         else:
             print(f"⚠️  Warning: Config file not found at {self._env_file_path}")
 
+    def _read_env_file_value(self, key: str) -> Optional[str]:
+        """Read a value from a *_FILE environment variable.
+
+        This supports Docker secrets / file-based env patterns like:
+        - WATCHDOG_ADMIN_TOKEN_FILE=/run/secrets/WATCHDOG_ADMIN_TOKEN
+
+        Args:
+            key (str): Environment variable base key.
+
+        Returns:
+            Optional[str]: File content (stripped) if available, else None.
+        """
+        file_path = os.getenv(f"{key}_FILE")
+        if not file_path:
+            return None
+
+        try:
+            if not os.path.isfile(file_path):
+                return None
+            with open(file_path, "r", encoding="utf-8") as f:
+                value = f.read().strip()
+            return value if value != "" else None
+        except Exception:
+            return None
+
     def _get_value(self, key: str, default: Any = None) -> Any:
         """
         Get config value with tracing.
@@ -117,7 +142,7 @@ class WatchdogConfig:
         1. WATCHDOG_ADMIN_TOKEN: Environment > watchdog.env (Security/Lockout protection)
         2. Others: watchdog.env > Environment (UI update priority)
         """
-        env_val = os.getenv(key)
+        env_val = self._read_env_file_value(key) or os.getenv(key)
         file_val = self._file_values.get(key)
         
         # Trace for critical keys
