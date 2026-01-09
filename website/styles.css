@@ -123,17 +123,42 @@ header .subtitle {
 
 .threshold-item {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     gap: 0.75rem;
     align-items: center;
     padding: 0.75rem;
-    background: var(--bg-color);
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 0.375rem;
 }
 
 .threshold-item .threshold-label {
     font-weight: 500;
     min-width: 180px;
+}
+
+.threshold-item .current-value {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 100px;
+}
+
+.threshold-item .current-number {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.threshold-item .current-number.status-ok {
+    color: var(--success-color);
+}
+
+.threshold-item .current-number.status-warning {
+    color: var(--warning-color);
+}
+
+.threshold-item .current-number.status-error {
+    color: var(--error-color);
 }
 
 .threshold-item input {
@@ -261,17 +286,18 @@ footer {
 
     .threshold-item {
         grid-template-columns: 1fr;
+        gap: 0.5rem;
     }
 
     .threshold-item .threshold-label {
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
 
-    .actions {
-        flex-direction: column;
+    .threshold-item .current-value {
+        margin-bottom: 0.25rem;
     }
 
-    .actions .btn {
-        width: 100%;
+    .threshold-item .input-group {
+        margin-bottom: 0.25rem;
     }
 }

@@ -231,6 +231,70 @@ def handle_get_defaults():
     })
 
 
+@app.route("/v1/admin/system-state", methods=["GET"])
+@require_auth
+def handle_get_system_state():
+    """Get the current system state from serverInfo.
+    
+    Returns:
+        JSON response with current system metrics and thresholds.
+    """
+    try:
+        server_info_path = os.getenv("SERVER_INFO_PATH", "/code/serverInfo")
+        system_info_file = os.path.join(server_info_path, "system_info.json")
+        
+        if not os.path.isfile(system_info_file):
+            return jsonify({
+                "success": False,
+                "error": "System info file not found",
+                "path": system_info_file
+            }), 404
+        
+        # Read current system state
+        with open(system_info_file, 'r') as f:
+            system_state = json.load(f)
+        
+        # Get current thresholds from config
+        config = get_watchdog_config()
+        thresholds = {}
+        if config.thresholds_json:
+            try:
+                thresholds = json.loads(config.thresholds_json)
+            except json.JSONDecodeError:
+                pass
+        
+        # Combine current state with thresholds for easy comparison
+        response = {
+            "success": True,
+            "data": {
+                "timestamp": system_state.get("timestamp"),
+                "serverName": system_state.get("serverName"),
+                "current": {
+                    "cpu": system_state.get("cpu", {}).get("usage_percent", 0),
+                    "disk": system_state.get("disk", {}).get("usage_percent", 0),
+                    "memory": system_state.get("memory", {}).get("usage_percent", 0),
+                    "processes": system_state.get("processes", {}).get("count", 0),
+                    "users": system_state.get("users", {}).get("count", 0),
+                    "updates": system_state.get("updates", {}).get("count", 0),
+                    "system_restart": system_state.get("system", {}).get("uptime_days", 0),
+                    "linux_server_state_tool": system_state.get("linux_server_state_tool", {}).get("commits_behind", 0),
+                    "gluster_unhealthy_peers": system_state.get("gluster", {}).get("unhealthy_peers", 0),
+                    "gluster_unhealthy_volumes": system_state.get("gluster", {}).get("unhealthy_volumes", 0),
+                    "network_up": system_state.get("network", {}).get("up_bps", 0),
+                    "network_down": system_state.get("network", {}).get("down_bps", 0),
+                    "network_total": system_state.get("network", {}).get("total_bps", 0),
+                    "timestampAgeMinutes": system_state.get("timestamp_age_minutes", 0)
+                },
+                "thresholds": thresholds
+            }
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.getenv("ADMIN_API_PORT", "5000"))
     debug = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")

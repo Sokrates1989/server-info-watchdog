@@ -112,15 +112,44 @@ function populateForm(config) {
     populateThresholds(config.thresholds || {});
 }
 
-function populateThresholds(thresholds) {
+function populateThresholds(thresholds, currentValues = null) {
     thresholdsContainer.innerHTML = '';
 
     for (const [key, values] of Object.entries(thresholds)) {
         const label = THRESHOLD_LABELS[key] || key;
+        const currentValue = currentValues ? currentValues[key] : null;
+        const currentValueStr = currentValue !== null ? formatCurrentValue(key, currentValue) : 'N/A';
+        
+        // Determine status based on current value vs thresholds
+        let statusClass = '';
+        let statusIcon = '';
+        if (currentValue !== null) {
+            const warningThreshold = parseFloat(values.warning);
+            const errorThreshold = parseFloat(values.error);
+            const current = parseFloat(currentValue);
+            
+            if (!isNaN(current) && !isNaN(warningThreshold) && !isNaN(errorThreshold)) {
+                if (current >= errorThreshold) {
+                    statusClass = 'status-error';
+                    statusIcon = '🔴';
+                } else if (current >= warningThreshold) {
+                    statusClass = 'status-warning';
+                    statusIcon = '🟡';
+                } else {
+                    statusClass = 'status-ok';
+                    statusIcon = '🟢';
+                }
+            }
+        }
+        
         const item = document.createElement('div');
         item.className = 'threshold-item';
         item.innerHTML = `
-            <span class="threshold-label">${label}</span>
+            <span class="threshold-label">${label} ${statusIcon}</span>
+            <div class="current-value">
+                <span class="input-label">Current:</span>
+                <span class="current-number ${statusClass}">${currentValueStr}</span>
+            </div>
             <div class="input-group">
                 <span class="input-label">Warning:</span>
                 <input type="text" id="thresh-${key}-warning" value="${values.warning || ''}" />
@@ -132,6 +161,41 @@ function populateThresholds(thresholds) {
         `;
         thresholdsContainer.appendChild(item);
     }
+}
+
+function formatCurrentValue(key, value) {
+    // Format based on the metric type
+    switch(key) {
+        case 'cpu':
+        case 'disk':
+        case 'memory':
+            return `${value}%`;
+        case 'network_up':
+        case 'network_down':
+        case 'network_total':
+            return formatBytes(value);
+        case 'timestampAgeMinutes':
+            return `${value} min`;
+        case 'system_restart':
+            return `${value} days`;
+        case 'processes':
+        case 'users':
+        case 'updates':
+        case 'linux_server_state_tool':
+        case 'gluster_unhealthy_peers':
+        case 'gluster_unhealthy_volumes':
+            return value.toString();
+        default:
+            return value.toString();
+    }
+}
+
+function formatBytes(bits) {
+    if (bits === 0) return '0 bps';
+    const units = ['bps', 'Kbps', 'Mbps', 'Gbps'];
+    const k = 1000;
+    const i = Math.floor(Math.log(bits) / Math.log(k));
+    return parseFloat((bits / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
 }
 
 function collectFormData() {
@@ -266,6 +330,55 @@ async function loadVersion() {
     }
 }
 
+// Load current system state
+async function loadSystemState() {
+    try {
+        const response = await apiCall('/v1/admin/system-state');
+        if (response.success) {
+            return response.data;
+        }
+    } catch (error) {
+        console.error('Failed to load system state:', error);
+    }
+    return null;
+}
+
+// Load configuration with current values
+async function loadConfig() {
+    try {
+        const [configResponse, systemState] = await Promise.all([
+            apiCall('/v1/admin/config'),
+            loadSystemState()
+        ]);
+        
+        if (configResponse.success) {
+            const config = configResponse.data;
+            
+            // Server settings
+            document.getElementById('server-name').value = config.serverName || '';
+            document.getElementById('gluster-handling').value = config.glusterNotInstalledHandling || 'none';
+            
+            // Telegram chat IDs
+            document.getElementById('error-chat-ids').value = (config.errorChatIds || []).join(', ');
+            document.getElementById('warning-chat-ids').value = (config.warningChatIds || []).join(', ');
+            document.getElementById('info-chat-ids').value = (config.infoChatIds || []).join(', ');
+            
+            // Message frequency
+            document.getElementById('freq-info').value = config.messageFrequency?.info || '1h';
+            document.getElementById('freq-warning').value = config.messageFrequency?.warning || '1d';
+            document.getElementById('freq-error').value = config.messageFrequency?.error || '3d';
+            
+            // Thresholds with current values
+            populateThresholds(config.thresholds || {}, systemState?.current || {});
+            
+            currentConfig = config;
+        }
+    } catch (error) {
+        console.error('Failed to load config:', error);
+        showStatus('Failed to load configuration', 'error');
+    }
+}
+
 // Initialize
 function init() {
     // Load version immediately
@@ -289,6 +402,15 @@ function init() {
     reloadBtn.addEventListener('click', loadConfig);
     logoutBtn.addEventListener('click', handleLogout);
     resetThresholdsBtn.addEventListener('click', handleResetThresholds);
+    
+    // Add refresh current values button
+    const refreshCurrentBtn = document.getElementById('refresh-current-btn');
+    if (refreshCurrentBtn) {
+        refreshCurrentBtn.addEventListener('click', () => {
+            loadConfig();
+            showStatus('Current values refreshed', 'success');
+        });
+    }
 }
 
 // Start

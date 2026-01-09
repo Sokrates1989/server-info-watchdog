@@ -94,15 +94,23 @@
             <!-- Thresholds -->
             <div class="card">
                 <h2>Thresholds</h2>
-                <p class="hint">Warning and error thresholds for each metric</p>
+                <p class="hint">Warning and error thresholds for each metric with current values</p>
                 
                 <div class="threshold-grid" id="thresholds-container">
-                    <!-- Thresholds will be dynamically populated -->
+                    <!-- Thresholds with current values will be dynamically populated -->
                 </div>
                 
                 <button id="reset-thresholds-btn" class="btn btn-secondary">Reset to Defaults</button>
+                <button id="refresh-current-btn" class="btn btn-info">Refresh Current Values</button>
             </div>
         </section>
+
+        <!-- Actions -->
+        <div class="card actions">
+            <button id="save-btn" class="btn btn-primary">Save Configuration</button>
+            <button id="reload-btn" class="btn btn-secondary">Reload from Server</button>
+            <button id="logout-btn" class="btn btn-danger">Logout</button>
+        </div>
 
         <footer>
             <p>Server Info Watchdog Admin | Web: <span id="webVersion">loading...</span></p>
