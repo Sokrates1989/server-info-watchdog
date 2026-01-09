@@ -408,10 +408,14 @@ async function loadSystemState() {
 // Load configuration with current values
 async function loadConfig() {
     try {
-        const [configResponse, systemState] = await Promise.all([
-            apiCall('/config'),
-            loadSystemState()
-        ]);
+        // Try to load both config and system state, but don't fail if system state is not available
+        const configPromise = apiCall('/config');
+        const systemStatePromise = loadSystemState().catch(err => {
+            console.warn('System state endpoint not available, loading config only:', err);
+            return null;
+        });
+        
+        const [configResponse, systemState] = await Promise.all([configPromise, systemStatePromise]);
         
         if (configResponse.success) {
             const config = configResponse.data;
@@ -430,7 +434,7 @@ async function loadConfig() {
             document.getElementById('freq-warning').value = config.messageFrequency?.warning || '1d';
             document.getElementById('freq-error').value = config.messageFrequency?.error || '3d';
             
-            // Thresholds with current values
+            // Thresholds with current values (if available)
             populateThresholds(config.thresholds || {}, systemState?.current || {});
             
             currentConfig = config;

@@ -256,12 +256,7 @@ def handle_get_system_state():
         
         # Get current thresholds from config
         config = get_watchdog_config()
-        thresholds = {}
-        if config.thresholds_json:
-            try:
-                thresholds = json.loads(config.thresholds_json)
-            except json.JSONDecodeError:
-                pass
+        thresholds = getattr(config, 'thresholds', {})
         
         # Combine current state with thresholds for easy comparison
         response = {
