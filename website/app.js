@@ -38,6 +38,7 @@ const reloadBtn = document.getElementById('reload-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const resetThresholdsBtn = document.getElementById('reset-thresholds-btn');
 const statusMessage = document.getElementById('status-message');
+const statusMessageBottom = document.getElementById('status-message-bottom');
 const thresholdsContainer = document.getElementById('thresholds-container');
 
 // Load and initialize action buttons
@@ -307,12 +308,22 @@ function parseChatIds(str) {
 }
 
 function showStatus(message, type = 'success') {
-    statusMessage.textContent = message;
-    statusMessage.className = `status ${type}`;
-    statusMessage.classList.remove('hidden');
+    // Update both status containers
+    [statusMessage, statusMessageBottom].forEach(element => {
+        if (element) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+            element.classList.remove('hidden');
+        }
+    });
 
+    // Hide both after timeout
     setTimeout(() => {
-        statusMessage.classList.add('hidden');
+        [statusMessage, statusMessageBottom].forEach(element => {
+            if (element) {
+                element.classList.add('hidden');
+            }
+        });
     }, 5000);
 }
 
