@@ -205,7 +205,7 @@ function populateThresholds(thresholds, currentValues = null) {
         const item = document.createElement('div');
         item.className = 'threshold-item';
         item.innerHTML = `
-            <span class="threshold-label">${label} ${statusIcon}</span>
+            <span class="threshold-label">${statusIcon} ${label}</span>
             <div class="current-value">
                 <span class="input-label">Current:</span>
                 <span class="current-number ${statusClass}">${currentValueStr}</span>
@@ -224,6 +224,11 @@ function populateThresholds(thresholds, currentValues = null) {
 }
 
 function formatCurrentValue(key, value) {
+    // Handle undefined or null values
+    if (value === undefined || value === null) {
+        return 'N/A';
+    }
+    
     // Format based on the metric type
     switch(key) {
         case 'cpu':
@@ -235,7 +240,7 @@ function formatCurrentValue(key, value) {
         case 'network_total':
             return formatBytes(value);
         case 'timestampAgeMinutes':
-            return `${value} min`;
+            return `${value} min old`;
         case 'system_restart':
             return `${value} days`;
         case 'processes':
@@ -408,6 +413,8 @@ async function loadSystemState() {
 // Load configuration with current values
 async function loadConfig() {
     try {
+        console.log('DEBUG: Starting loadConfig...');
+        
         // Try to load both config and system state, but don't fail if system state is not available
         const configPromise = apiCall('/config');
         const systemStatePromise = loadSystemState().catch(err => {
@@ -415,33 +422,96 @@ async function loadConfig() {
             return null;
         });
         
+        console.log('DEBUG: Waiting for API responses...');
         const [configResponse, systemState] = await Promise.all([configPromise, systemStatePromise]);
         
+        console.log('DEBUG: Config response:', configResponse);
+        console.log('DEBUG: System state:', systemState);
+        
         if (configResponse.success) {
-            const config = configResponse.data;
+            const config = configResponse.config || configResponse.data || {};
+            console.log('DEBUG: Config data loaded:', config);
             
             // Server settings
-            document.getElementById('server-name').value = config.serverName || '';
-            document.getElementById('gluster-handling').value = config.glusterNotInstalledHandling || 'none';
+            const serverNameEl = document.getElementById('server-name');
+            if (serverNameEl) {
+                serverNameEl.value = config.serverName || '';
+                console.log('DEBUG: Set server name');
+            } else {
+                console.error('DEBUG: server-name element not found');
+            }
+            
+            const glusterEl = document.getElementById('gluster-handling');
+            if (glusterEl) {
+                glusterEl.value = config.glusterNotInstalledHandling || 'none';
+                console.log('DEBUG: Set gluster handling');
+            } else {
+                console.error('DEBUG: gluster-handling element not found');
+            }
             
             // Telegram chat IDs
-            document.getElementById('error-chat-ids').value = (config.errorChatIds || []).join(', ');
-            document.getElementById('warning-chat-ids').value = (config.warningChatIds || []).join(', ');
-            document.getElementById('info-chat-ids').value = (config.infoChatIds || []).join(', ');
+            const errorChatEl = document.getElementById('error-chat-ids');
+            if (errorChatEl) {
+                errorChatEl.value = (config.errorChatIds || []).join(', ');
+                console.log('DEBUG: Set error chat IDs');
+            } else {
+                console.error('DEBUG: error-chat-ids element not found');
+            }
+            
+            const warningChatEl = document.getElementById('warning-chat-ids');
+            if (warningChatEl) {
+                warningChatEl.value = (config.warningChatIds || []).join(', ');
+                console.log('DEBUG: Set warning chat IDs');
+            } else {
+                console.error('DEBUG: warning-chat-ids element not found');
+            }
+            
+            const infoChatEl = document.getElementById('info-chat-ids');
+            if (infoChatEl) {
+                infoChatEl.value = (config.infoChatIds || []).join(', ');
+                console.log('DEBUG: Set info chat IDs');
+            } else {
+                console.error('DEBUG: info-chat-ids element not found');
+            }
             
             // Message frequency
-            document.getElementById('freq-info').value = config.messageFrequency?.info || '1h';
-            document.getElementById('freq-warning').value = config.messageFrequency?.warning || '1d';
-            document.getElementById('freq-error').value = config.messageFrequency?.error || '3d';
+            const freqInfoEl = document.getElementById('freq-info');
+            if (freqInfoEl) {
+                freqInfoEl.value = config.messageFrequency?.info || '1h';
+                console.log('DEBUG: Set freq info');
+            } else {
+                console.error('DEBUG: freq-info element not found');
+            }
+            
+            const freqWarningEl = document.getElementById('freq-warning');
+            if (freqWarningEl) {
+                freqWarningEl.value = config.messageFrequency?.warning || '1d';
+                console.log('DEBUG: Set freq warning');
+            } else {
+                console.error('DEBUG: freq-warning element not found');
+            }
+            
+            const freqErrorEl = document.getElementById('freq-error');
+            if (freqErrorEl) {
+                freqErrorEl.value = config.messageFrequency?.error || '3d';
+                console.log('DEBUG: Set freq error');
+            } else {
+                console.error('DEBUG: freq-error element not found');
+            }
             
             // Thresholds with current values (if available)
+            console.log('DEBUG: About to populate thresholds...');
             populateThresholds(config.thresholds || {}, systemState?.current || {});
             
             currentConfig = config;
             showStatus('Configuration loaded', 'success');
+            console.log('DEBUG: Configuration loaded successfully');
+        } else {
+            console.error('DEBUG: Config response not successful:', configResponse);
+            showStatus('Failed to load configuration', 'error');
         }
     } catch (error) {
-        console.error('Failed to load config:', error);
+        console.error('DEBUG: Error in loadConfig:', error);
         showStatus('Failed to load configuration', 'error');
     }
 }
