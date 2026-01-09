@@ -51,9 +51,16 @@ if ([string]::IsNullOrWhiteSpace($IMAGE_VERSION)) {
 }
 
 $FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_VERSION}"
+$LATEST_IMAGE = "${IMAGE_NAME}:latest"
+$WEB_IMAGE = "${IMAGE_NAME}-web:${IMAGE_VERSION}"
+$WEB_LATEST_IMAGE = "${IMAGE_NAME}-web:latest"
 
 Write-Host "" 
-Write-Host "[BUILD] Building: $FULL_IMAGE" -ForegroundColor Cyan
+Write-Host "[BUILD] Will build and push:" -ForegroundColor Cyan
+Write-Host "   - $FULL_IMAGE" -ForegroundColor White
+Write-Host "   - $LATEST_IMAGE" -ForegroundColor White
+Write-Host "   - $WEB_IMAGE" -ForegroundColor White
+Write-Host "   - $WEB_LATEST_IMAGE" -ForegroundColor White
 Write-Host ""
 
 # Determine target platform (default to linux/amd64 for Swarm nodes)
@@ -81,13 +88,40 @@ if ($useBuildx) {
     docker build -t $FULL_IMAGE .
 }
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host ""
-    Write-Host "[OK] Image built successfully: $FULL_IMAGE" -ForegroundColor Green
-    Write-Host ""
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Main image build failed" -ForegroundColor Red
+    exit 1
+}
 
+# Build web image
+Write-Host ""
+Write-Host "[BUILD] Building web image..." -ForegroundColor Cyan
+
+if ($useBuildx) {
+    Write-Host "[BUILD] Using docker buildx for platform $TargetPlatform..." -ForegroundColor Cyan
+    docker buildx build --platform $TargetPlatform -f Dockerfile_web -t $WEB_IMAGE --build-arg IMAGE_TAG=$IMAGE_VERSION --load .
+} else {
+    Write-Host "[BUILD] docker buildx not found, falling back to docker build (host architecture)..." -ForegroundColor Yellow
+    docker build -f Dockerfile_web -t $WEB_IMAGE --build-arg IMAGE_TAG=$IMAGE_VERSION .
+}
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Web image build failed" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "[OK] Images built successfully:" -ForegroundColor Green
+Write-Host "   - $FULL_IMAGE" -ForegroundColor White
+Write-Host "   - $WEB_IMAGE" -ForegroundColor White
+Write-Host ""
+
+if ($LASTEXITCODE -eq 0) {
     Write-Host "" 
     Write-Host "[PUSH] Pushing to registry..." -ForegroundColor Cyan
+    
+    # Push main images
+    Write-Host "[PUSH] Pushing: $FULL_IMAGE" -ForegroundColor Cyan
     docker push $FULL_IMAGE
 
     if ($LASTEXITCODE -ne 0) {
@@ -96,18 +130,42 @@ if ($LASTEXITCODE -eq 0) {
         exit 1
     }
 
-    Write-Host "[OK] Image pushed successfully" -ForegroundColor Green
+    Write-Host "[OK] Pushed: $FULL_IMAGE" -ForegroundColor Green
 
     if ($IMAGE_VERSION -ne "latest") {
-        docker tag $FULL_IMAGE "${IMAGE_NAME}:latest"
-        docker push "${IMAGE_NAME}:latest"
+        docker tag $FULL_IMAGE $LATEST_IMAGE
+        docker push $LATEST_IMAGE
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "[OK] Also pushed as ${IMAGE_NAME}:latest" -ForegroundColor Green
+            Write-Host "[OK] Also pushed: $LATEST_IMAGE" -ForegroundColor Green
         } else {
-            Write-Host "[ERROR] Failed to push ${IMAGE_NAME}:latest" -ForegroundColor Red
+            Write-Host "[ERROR] Failed to push $LATEST_IMAGE" -ForegroundColor Red
             exit 1
         }
     }
+    
+    # Push web images
+    Write-Host "[PUSH] Pushing: $WEB_IMAGE" -ForegroundColor Cyan
+    docker push $WEB_IMAGE
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Failed to push image: $WEB_IMAGE" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "[OK] Pushed: $WEB_IMAGE" -ForegroundColor Green
+
+    if ($IMAGE_VERSION -ne "latest") {
+        docker tag $WEB_IMAGE $WEB_LATEST_IMAGE
+        docker push $WEB_LATEST_IMAGE
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] Also pushed: $WEB_LATEST_IMAGE" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] Failed to push $WEB_LATEST_IMAGE" -ForegroundColor Red
+            exit 1
+        }
+    }
+    
+    Write-Host "[OK] All images pushed successfully" -ForegroundColor Green
     
     # Update .env with new version
     if (Test-Path .env) {
@@ -115,6 +173,7 @@ if ($LASTEXITCODE -eq 0) {
         
         $hasImageName = $false
         $hasImageVersion = $false
+        $hasWebImageVersion = $false
         $newLines = @()
         
         foreach ($line in $envLines) {
@@ -124,6 +183,9 @@ if ($LASTEXITCODE -eq 0) {
             } elseif ($line -match '^IMAGE_VERSION=') {
                 $newLines += "IMAGE_VERSION=$IMAGE_VERSION"
                 $hasImageVersion = $true
+            } elseif ($line -match '^WEB_IMAGE_VERSION=') {
+                $newLines += "WEB_IMAGE_VERSION=$IMAGE_VERSION"
+                $hasWebImageVersion = $true
             } else {
                 $newLines += $line
             }
@@ -135,9 +197,12 @@ if ($LASTEXITCODE -eq 0) {
         if (-not $hasImageVersion) {
             $newLines += "IMAGE_VERSION=$IMAGE_VERSION"
         }
+        if (-not $hasWebImageVersion) {
+            $newLines += "WEB_IMAGE_VERSION=$IMAGE_VERSION"
+        }
         
         $newLines | Set-Content .env -Encoding utf8
-        Write-Host "[OK] Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION" -ForegroundColor Green
+        Write-Host "[OK] Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION, WEB_IMAGE_VERSION=$IMAGE_VERSION" -ForegroundColor Green
     }
 } else {
     Write-Host "[ERROR] Build failed" -ForegroundColor Red

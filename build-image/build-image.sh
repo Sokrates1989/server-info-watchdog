@@ -83,11 +83,15 @@ IMAGE_NAME="$main_image_name"
 IMAGE_VERSION="$main_image_version"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_VERSION}"
 LATEST_IMAGE="${IMAGE_NAME}:latest"
+WEB_IMAGE="${IMAGE_NAME}-web:${IMAGE_VERSION}"
+WEB_LATEST_IMAGE="${IMAGE_NAME}-web:latest"
 
 echo ""
 echo "📦 Will build and push:"
 echo "   - $FULL_IMAGE"
 echo "   - $LATEST_IMAGE"
+echo "   - $WEB_IMAGE"
+echo "   - $WEB_LATEST_IMAGE"
 echo ""
 
 # Determine target platform (default to linux/amd64 for Swarm nodes)
@@ -111,6 +115,28 @@ else
 fi
 
 echo "$BUILD_OUTPUT"
+
+# Build web image with platform support
+echo ""
+echo "🌐 Building web image..."
+WEB_BUILD_EXIT_CODE=0
+if docker buildx version >/dev/null 2>&1; then
+    echo "📦 Using docker buildx for platform $TARGET_PLATFORM..."
+    echo "   Building web with tags: $WEB_IMAGE and $WEB_LATEST_IMAGE"
+    WEB_BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -f Dockerfile_web -t "$WEB_IMAGE" -t "$WEB_LATEST_IMAGE" --build-arg IMAGE_TAG="$IMAGE_VERSION" --load . 2>&1) || WEB_BUILD_EXIT_CODE=$?
+else
+    echo "📦 docker buildx not found, falling back to docker build (host architecture)..."
+    echo "   Building web with tags: $WEB_IMAGE and $WEB_LATEST_IMAGE"
+    WEB_BUILD_OUTPUT=$(docker build -f Dockerfile_web -t "$WEB_IMAGE" -t "$WEB_LATEST_IMAGE" --build-arg IMAGE_TAG="$IMAGE_VERSION" . 2>&1) || WEB_BUILD_EXIT_CODE=$?
+fi
+
+echo "$WEB_BUILD_OUTPUT"
+
+# Check if builds succeeded
+if [ $BUILD_EXIT_CODE -ne 0 ] || [ $WEB_BUILD_EXIT_CODE -ne 0 ]; then
+    echo "❌ Build failed"
+    exit 1
+fi
 
 # Registry helper functions for push with login retry
 infer_registry() {
@@ -247,24 +273,36 @@ if [ "$GIT_UTILS_LOADED" = true ]; then
     fi
 fi
 
-if [ $BUILD_EXIT_CODE -eq 0 ]; then
+if [ $BUILD_EXIT_CODE -eq 0 ] && [ $WEB_BUILD_EXIT_CODE -eq 0 ]; then
     echo ""
-    echo "✅ Image built successfully: $FULL_IMAGE"
+    echo "✅ Images built successfully:"
+    echo "   - $FULL_IMAGE"
+    echo "   - $WEB_IMAGE"
     echo ""
     
     echo "📤 Auto-pushing to registry..."
     registry="$(infer_registry "$IMAGE_NAME" || true)"
     
-    # Push versioned tag
+    # Push main images
     echo "📤 Pushing: $FULL_IMAGE"
     push_with_login_retry "$FULL_IMAGE" "$registry" || exit 1
     echo "✅ Pushed: $FULL_IMAGE"
     
-    # Push latest tag (always push, even if version is latest to ensure consistency)
     echo ""
     echo "📤 Pushing: $LATEST_IMAGE"
     push_with_login_retry "$LATEST_IMAGE" "$registry" || exit 1
     echo "✅ Pushed: $LATEST_IMAGE"
+    
+    # Push web images
+    echo ""
+    echo "📤 Pushing: $WEB_IMAGE"
+    push_with_login_retry "$WEB_IMAGE" "$registry" || exit 1
+    echo "✅ Pushed: $WEB_IMAGE"
+    
+    echo ""
+    echo "📤 Pushing: $WEB_LATEST_IMAGE"
+    push_with_login_retry "$WEB_LATEST_IMAGE" "$registry" || exit 1
+    echo "✅ Pushed: $WEB_LATEST_IMAGE"
     
     echo ""
     echo "✅ All images pushed successfully"
@@ -282,7 +320,13 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
         else
             echo "IMAGE_VERSION=$IMAGE_VERSION" >> .env
         fi
-        echo "✅ Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION"
+        
+        if grep -q '^WEB_IMAGE_VERSION=' .env; then
+            sed_in_place "s|^WEB_IMAGE_VERSION=.*|WEB_IMAGE_VERSION=$IMAGE_VERSION|" .env
+        else
+            echo "WEB_IMAGE_VERSION=$IMAGE_VERSION" >> .env
+        fi
+        echo "✅ Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION, WEB_IMAGE_VERSION=$IMAGE_VERSION"
     fi
 else
     echo "❌ Build failed"
