@@ -246,8 +246,31 @@ function handleResetThresholds() {
     }
 }
 
+// Load and display version information
+async function loadVersion() {
+    try {
+        const response = await fetch('/version.json');
+        if (response.ok) {
+            const versionData = await response.json();
+            const webVersionElement = document.getElementById('webVersion');
+            if (webVersionElement) {
+                webVersionElement.textContent = versionData.version || 'unknown';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load version:', error);
+        const webVersionElement = document.getElementById('webVersion');
+        if (webVersionElement) {
+            webVersionElement.textContent = 'unknown';
+        }
+    }
+}
+
 // Initialize
 function init() {
+    // Load version immediately
+    loadVersion();
+    
     // Check for saved token
     const savedToken = localStorage.getItem('watchdog_admin_token');
     if (savedToken) {
