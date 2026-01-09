@@ -19,8 +19,8 @@ serverInfo/*
 # Do not version cached python dirs.
 **/__pycache__
 
-# Do not version docker compose (use template instead to reflect changes).
-docker-compose.yml
+# Do not version root docker compose (use template instead to reflect changes).
+/docker-compose.yml
 
 # Auto-generated MariaDB-compatible SQL files (created by setup wizard when restoring MySQL 8 backups).
 *__mariadb.sql
