@@ -139,20 +139,12 @@ handle_build_and_push_all_images() {
     echo ""
     
     # Build and push main image with environment variables
-    echo "🏗️  Building main image..."
+    # Note: build-image.sh now builds both main AND web images with buildx
+    echo "🏗️  Building main and web images..."
     IMAGE_NAME="$main_image_name" IMAGE_VERSION="$main_image_version" bash build-image/build-image.sh
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        echo "❌ Main image build failed"
-        return $exit_code
-    fi
-    
-    echo ""
-    echo "🏗️  Building web image..."
-    IMAGE_NAME="$web_image_name" IMAGE_VERSION="$web_image_version" bash build-image/build-web-image.sh
-    exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-        echo "❌ Web image build failed"
+        echo "❌ Image build failed"
         return $exit_code
     fi
 

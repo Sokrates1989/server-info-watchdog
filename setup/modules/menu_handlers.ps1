@@ -64,9 +64,7 @@ function Build-AndPushAllImages {
     - Python image used by watchdog + admin-api
     - Web UI nginx image
 
-    Calls the existing build scripts in sequence:
-    - build-image\build-image.ps1
-    - build-image\build-web-image.ps1
+    Calls the build-image.ps1 script which now builds both main AND web images with buildx
     #>
     Write-Host "" 
     Write-Host "[BUILD] Build & Push ALL images" -ForegroundColor Cyan
@@ -74,14 +72,7 @@ function Build-AndPushAllImages {
 
     Build-ProductionImage
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] Failed to build/push production image" -ForegroundColor Red
-        return
-    }
-
-    Write-Host "" 
-    Build-WebImage
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] Failed to build/push web UI image" -ForegroundColor Red
+        Write-Host "[ERROR] Failed to build/push images" -ForegroundColor Red
         return
     }
 

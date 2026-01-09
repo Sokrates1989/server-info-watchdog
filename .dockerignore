@@ -1,0 +1,27 @@
+# Local runtime data
+/db_data/
+/logs/
+
+# VCS
+/.git/
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+/.pytest_cache/
+/.mypy_cache/
+
+# Local environments
+/.venv/
+/venv/
+
+# Local env files
+.env
+watchdog.env
+.ci.env
+
+# OS/editor
+**/.DS_Store
+**/Thumbs.db
