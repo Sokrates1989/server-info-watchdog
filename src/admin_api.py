@@ -262,23 +262,23 @@ def handle_get_system_state():
         response = {
             "success": True,
             "data": {
-                "timestamp": system_state.get("timestamp"),
-                "serverName": system_state.get("serverName"),
+                "timestamp": system_state.get("timestamp", {}).get("human_readable_format"),
+                "serverName": system_state.get("system_info", {}).get("hostname"),
                 "current": {
-                    "cpu": system_state.get("cpu", {}).get("usage_percent", 0),
-                    "disk": system_state.get("disk", {}).get("usage_percent", 0),
-                    "memory": system_state.get("memory", {}).get("usage_percent", 0),
-                    "processes": system_state.get("processes", {}).get("count", 0),
-                    "users": system_state.get("users", {}).get("count", 0),
-                    "updates": system_state.get("updates", {}).get("count", 0),
-                    "system_restart": system_state.get("system", {}).get("uptime_days", 0),
-                    "linux_server_state_tool": system_state.get("linux_server_state_tool", {}).get("commits_behind", 0),
-                    "gluster_unhealthy_peers": system_state.get("gluster", {}).get("unhealthy_peers", 0),
-                    "gluster_unhealthy_volumes": system_state.get("gluster", {}).get("unhealthy_volumes", 0),
-                    "network_up": system_state.get("network", {}).get("up_bps", 0),
-                    "network_down": system_state.get("network", {}).get("down_bps", 0),
-                    "network_total": system_state.get("network", {}).get("total_bps", 0),
-                    "timestampAgeMinutes": system_state.get("timestamp_age_minutes", 0)
+                    "cpu": float(system_state.get("cpu", {}).get("last_15min_cpu_percentage", 0)),
+                    "disk": float(system_state.get("disk", {}).get("disk_usage_percentage", "0").replace('%', '')),
+                    "memory": float(system_state.get("memory", {}).get("memory_usage_percentage", 0)),
+                    "processes": int(system_state.get("processes", {}).get("amount_processes", 0)),
+                    "users": int(system_state.get("users", {}).get("logged_in_users", 0)),
+                    "updates": int(system_state.get("updates", {}).get("amount_of_available_updates", 0)),
+                    "system_restart": int(int(system_state.get("system_restart", {}).get("time_elapsed_seconds", 0) or 0) / 86400),
+                    "linux_server_state_tool": int(system_state.get("linux_server_state_tool", {}).get("behind_count", 0)),
+                    "gluster_unhealthy_peers": int(system_state.get("gluster", {}).get("number_of_unhealthy_peers", 0)),
+                    "gluster_unhealthy_volumes": int(system_state.get("gluster", {}).get("number_of_unhealthy_volumes", 0)),
+                    "network_up": float(system_state.get("network", {}).get("upstream_avg_bits", 0)),
+                    "network_down": float(system_state.get("network", {}).get("downstream_avg_bits", 0)),
+                    "network_total": float(system_state.get("network", {}).get("total_network_avg_bits", 0)),
+                    "timestampAgeMinutes": 0  # Would need to calculate from timestamp
                 },
                 "thresholds": thresholds
             }
