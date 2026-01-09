@@ -102,12 +102,33 @@ echo ""
 echo "🚀 Starting build and push process..."
 echo ""
 
+ BUILDX_PUSHED=false
+
+ ensure_buildx_builder() {
+   local builder_name="${BUILDX_BUILDER_NAME:-server-info-watchdog-builder}"
+
+   if docker buildx inspect "$builder_name" >/dev/null 2>&1; then
+     if ! docker buildx inspect "$builder_name" 2>/dev/null | grep -q "Driver: docker-container"; then
+       docker buildx rm "$builder_name" >/dev/null 2>&1 || true
+       docker buildx create --name "$builder_name" --driver docker-container --use >/dev/null
+     else
+       docker buildx use "$builder_name" >/dev/null
+     fi
+   else
+     docker buildx create --name "$builder_name" --driver docker-container --use >/dev/null
+   fi
+
+   docker buildx inspect --bootstrap >/dev/null 2>&1
+ }
+
 # Build the image with both tags, capturing output for git corruption detection
 BUILD_EXIT_CODE=0
 if docker buildx version >/dev/null 2>&1; then
+     ensure_buildx_builder
     echo "📦 Using docker buildx for platform $TARGET_PLATFORM..."
     echo "   Building with tags: $FULL_IMAGE and $LATEST_IMAGE"
-    BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -t "$FULL_IMAGE" -t "$LATEST_IMAGE" --load . 2>&1) || BUILD_EXIT_CODE=$?
+    BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -t "$FULL_IMAGE" -t "$LATEST_IMAGE" --push . 2>&1) || BUILD_EXIT_CODE=$?
+    BUILDX_PUSHED=true
 else
     echo "📦 docker buildx not found, falling back to docker build (host architecture)..."
     echo "   Building with tags: $FULL_IMAGE and $LATEST_IMAGE"
@@ -121,9 +142,11 @@ echo ""
 echo "🌐 Building web image..."
 WEB_BUILD_EXIT_CODE=0
 if docker buildx version >/dev/null 2>&1; then
+    ensure_buildx_builder
     echo "📦 Using docker buildx for platform $TARGET_PLATFORM..."
     echo "   Building web with tags: $WEB_IMAGE and $WEB_LATEST_IMAGE"
-    WEB_BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -f Dockerfile_web -t "$WEB_IMAGE" -t "$WEB_LATEST_IMAGE" --build-arg IMAGE_TAG="$IMAGE_VERSION" --load . 2>&1) || WEB_BUILD_EXIT_CODE=$?
+    WEB_BUILD_OUTPUT=$(docker buildx build --platform "$TARGET_PLATFORM" -f Dockerfile_web -t "$WEB_IMAGE" -t "$WEB_LATEST_IMAGE" --build-arg IMAGE_TAG="$IMAGE_VERSION" --push . 2>&1) || WEB_BUILD_EXIT_CODE=$?
+    BUILDX_PUSHED=true
 else
     echo "📦 docker buildx not found, falling back to docker build (host architecture)..."
     echo "   Building web with tags: $WEB_IMAGE and $WEB_LATEST_IMAGE"
@@ -265,21 +288,26 @@ push_with_login_retry() {
 
 # Check for git corruption in build output
 if [ "$GIT_UTILS_LOADED" = true ]; then
-    if check_git_corruption_in_output "$BUILD_OUTPUT"; then
-        echo ""
-        echo "⚠️  Git corruption warnings detected during build."
-        echo "   The image may have been built successfully, but git metadata is incomplete."
-        handle_git_error_in_output "$BUILD_OUTPUT" "Docker build"
-    fi
+  if check_git_corruption_in_output "$BUILD_OUTPUT"; then
+    echo ""
+    echo "⚠️  Git corruption warnings detected during build."
+    echo "   The image may have been built successfully, but git metadata is incomplete."
+    handle_git_error_in_output "$BUILD_OUTPUT" "Docker build"
+  fi
 fi
 
 if [ $BUILD_EXIT_CODE -eq 0 ] && [ $WEB_BUILD_EXIT_CODE -eq 0 ]; then
-    echo ""
-    echo "✅ Images built successfully:"
-    echo "   - $FULL_IMAGE"
-    echo "   - $WEB_IMAGE"
-    echo ""
-    
+  echo ""
+  echo "✅ Images built successfully:"
+  echo "   - $FULL_IMAGE"
+  echo "   - $LATEST_IMAGE"
+  echo "   - $WEB_IMAGE"
+  echo "   - $WEB_LATEST_IMAGE"
+  echo ""
+
+  if [ "$BUILDX_PUSHED" = true ]; then
+    echo "✅ Images pushed successfully via buildx"
+  else
     echo "📤 Auto-pushing to registry..."
     registry="$(infer_registry "$IMAGE_NAME" || true)"
     
@@ -306,31 +334,33 @@ if [ $BUILD_EXIT_CODE -eq 0 ] && [ $WEB_BUILD_EXIT_CODE -eq 0 ]; then
     
     echo ""
     echo "✅ All images pushed successfully"
-    
-    # Update .env with new version
-    if [ -f .env ]; then
-        if grep -q '^IMAGE_NAME=' .env; then
-            sed_in_place "s|^IMAGE_NAME=.*|IMAGE_NAME=$IMAGE_NAME|" .env
-        else
-            echo "IMAGE_NAME=$IMAGE_NAME" >> .env
-        fi
-        
-        if grep -q '^IMAGE_VERSION=' .env; then
-            sed_in_place "s|^IMAGE_VERSION=.*|IMAGE_VERSION=$IMAGE_VERSION|" .env
-        else
-            echo "IMAGE_VERSION=$IMAGE_VERSION" >> .env
-        fi
-        
-        if grep -q '^WEB_IMAGE_VERSION=' .env; then
-            sed_in_place "s|^WEB_IMAGE_VERSION=.*|WEB_IMAGE_VERSION=$IMAGE_VERSION|" .env
-        else
-            echo "WEB_IMAGE_VERSION=$IMAGE_VERSION" >> .env
-        fi
-        echo "✅ Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION, WEB_IMAGE_VERSION=$IMAGE_VERSION"
+  fi
+  
+  # Update .env with new version
+  if [ -f .env ]; then
+    if grep -q '^IMAGE_NAME=' .env; then
+      sed_in_place "s|^IMAGE_NAME=.*|IMAGE_NAME=$IMAGE_NAME|" .env
+    else
+      echo "IMAGE_NAME=$IMAGE_NAME" >> .env
     fi
+
+    if grep -q '^IMAGE_VERSION=' .env; then
+      sed_in_place "s|^IMAGE_VERSION=.*|IMAGE_VERSION=$IMAGE_VERSION|" .env
+    else
+      echo "IMAGE_VERSION=$IMAGE_VERSION" >> .env
+    fi
+
+    if grep -q '^WEB_IMAGE_VERSION=' .env; then
+      sed_in_place "s|^WEB_IMAGE_VERSION=.*|WEB_IMAGE_VERSION=$IMAGE_VERSION|" .env
+    else
+      echo "WEB_IMAGE_VERSION=$IMAGE_VERSION" >> .env
+    fi
+
+    echo "✅ Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION, WEB_IMAGE_VERSION=$IMAGE_VERSION"
+  fi
 else
-    echo "❌ Build failed"
-    exit 1
+  echo "❌ Build failed"
+  exit 1
 fi
 
 echo ""

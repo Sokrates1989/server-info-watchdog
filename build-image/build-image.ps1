@@ -80,9 +80,36 @@ try {
     $useBuildx = $false
 }
 
+$BuildxPushed = $false
+$BuilderName = $env:BUILDX_BUILDER_NAME
+if ([string]::IsNullOrWhiteSpace($BuilderName)) {
+    $BuilderName = "server-info-watchdog-builder"
+}
+
+if ($useBuildx) {
+    $inspectOutput = docker buildx inspect $BuilderName 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        if ($inspectOutput -notmatch "Driver:\s+docker-container") {
+            docker buildx rm $BuilderName 2>$null | Out-Null
+            docker buildx create --name $BuilderName --driver docker-container --use | Out-Null
+        } else {
+            docker buildx use $BuilderName | Out-Null
+        }
+    } else {
+        docker buildx create --name $BuilderName --driver docker-container --use | Out-Null
+    }
+
+    docker buildx inspect --bootstrap | Out-Null
+}
+
 if ($useBuildx) {
     Write-Host "[BUILD] Using docker buildx for platform $TargetPlatform..." -ForegroundColor Cyan
-    docker buildx build --platform $TargetPlatform -t $FULL_IMAGE --load .
+    if ($FULL_IMAGE -ne $LATEST_IMAGE) {
+        docker buildx build --platform $TargetPlatform -t $FULL_IMAGE -t $LATEST_IMAGE --provenance=false --push .
+    } else {
+        docker buildx build --platform $TargetPlatform -t $FULL_IMAGE --provenance=false --push .
+    }
+    $BuildxPushed = $true
 } else {
     Write-Host "[BUILD] docker buildx not found, falling back to docker build (host architecture)..." -ForegroundColor Yellow
     docker build -t $FULL_IMAGE .
@@ -99,10 +126,15 @@ Write-Host "[BUILD] Building web image..." -ForegroundColor Cyan
 
 if ($useBuildx) {
     Write-Host "[BUILD] Using docker buildx for platform $TargetPlatform..." -ForegroundColor Cyan
-    docker buildx build --platform $TargetPlatform -f Dockerfile_web -t $WEB_IMAGE --build-arg IMAGE_TAG=$IMAGE_VERSION --load .
+    if ($WEB_IMAGE -ne $WEB_LATEST_IMAGE) {
+        docker buildx build --platform $TargetPlatform -f Dockerfile_web -t $WEB_IMAGE -t $WEB_LATEST_IMAGE --build-arg "IMAGE_TAG=$IMAGE_VERSION" --provenance=false --push .
+    } else {
+        docker buildx build --platform $TargetPlatform -f Dockerfile_web -t $WEB_IMAGE --build-arg "IMAGE_TAG=$IMAGE_VERSION" --provenance=false --push .
+    }
+    $BuildxPushed = $true
 } else {
     Write-Host "[BUILD] docker buildx not found, falling back to docker build (host architecture)..." -ForegroundColor Yellow
-    docker build -f Dockerfile_web -t $WEB_IMAGE --build-arg IMAGE_TAG=$IMAGE_VERSION .
+    docker build -f Dockerfile_web -t $WEB_IMAGE --build-arg "IMAGE_TAG=$IMAGE_VERSION" .
 }
 
 if ($LASTEXITCODE -ne 0) {
@@ -116,7 +148,9 @@ Write-Host "   - $FULL_IMAGE" -ForegroundColor White
 Write-Host "   - $WEB_IMAGE" -ForegroundColor White
 Write-Host ""
 
-if ($LASTEXITCODE -eq 0) {
+if ($BuildxPushed) {
+    Write-Host "[OK] Images pushed successfully via buildx" -ForegroundColor Green
+} else {
     Write-Host "" 
     Write-Host "[PUSH] Pushing to registry..." -ForegroundColor Cyan
     
@@ -166,6 +200,7 @@ if ($LASTEXITCODE -eq 0) {
     }
     
     Write-Host "[OK] All images pushed successfully" -ForegroundColor Green
+}
     
     # Update .env with new version
     if (Test-Path .env) {
