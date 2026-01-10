@@ -18,6 +18,7 @@ Endpoints:
 import json
 import os
 import sys
+import time
 from functools import wraps
 from typing import Any, Dict, Optional
 
@@ -278,7 +279,7 @@ def handle_get_system_state():
                     "network_up": float(system_state.get("network", {}).get("upstream_avg_bits", 0)),
                     "network_down": float(system_state.get("network", {}).get("downstream_avg_bits", 0)),
                     "network_total": float(system_state.get("network", {}).get("total_network_avg_bits", 0)),
-                    "timestampAgeMinutes": 0  # Would need to calculate from timestamp
+                    "timestampAgeMinutes": int((time.time() - int(system_state.get("timestamp", {}).get("unix_format", 0))) / 60)
                 },
                 "thresholds": thresholds
             }
