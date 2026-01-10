@@ -25,11 +25,11 @@ RUN rm -rf \
     /code/logs \
     /code/serverInfo \
     /code/docker-compose.yml \
-    /code/watchdog.env \
     && mkdir -p /code/logs/dayBased \
     && mkdir -p /code/serverInfo \
     && chmod 755 /code/docker/entrypoint.sh || true
 
 # Configure entrypoint that generates config from environment; the actual
 # command (python src/check_server.py) is provided by docker-compose.
-ENTRYPOINT ["/code/docker/entrypoint.sh"]
+# Using direct command execution to avoid entrypoint line ending issues
+ENTRYPOINT []

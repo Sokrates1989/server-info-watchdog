@@ -88,10 +88,24 @@ function Start-WebUI {
     Write-Host ""
     $oldComposeFile = $env:COMPOSE_FILE
     $env:COMPOSE_FILE = ""
-    docker compose --env-file .env -f $ComposeFile --profile web up -d --build
+    
+    # Load WEB_PORT from .env file
+    $webPort = "8080"
+    if (Test-Path ".env") {
+        $envContent = Get-Content ".env"
+        $webPortLine = $envContent | Where-Object { $_ -match "^WEB_PORT=" }
+        if ($webPortLine) {
+            $webPort = ($webPortLine -split "=")[1].Trim()
+        }
+    }
+    
+    # Start browser auto-opening in background
+    Show-RelevantPagesDelayed -ComposeFile $ComposeFile -TimeoutSeconds 120
+    
+    # Start for local testing.
+    docker compose --env-file .env -f $ComposeFile --profile web up --build
     $env:COMPOSE_FILE = $oldComposeFile
     Write-Host ""
-    $webPort = if ($env:WEB_PORT) { $env:WEB_PORT } else { "8080" }
     Write-Host "[OK] Web UI started at http://localhost:$webPort" -ForegroundColor Green
     Write-Host "   Use WATCHDOG_ADMIN_TOKEN from .env to login." -ForegroundColor Gray
 }
@@ -141,21 +155,15 @@ function Show-MainMenu {
     Write-Host "" 
     Write-Host "================ Main Menu ================" -ForegroundColor Yellow
     Write-Host "" 
-    Write-Host "Run:" -ForegroundColor Yellow
+    Write-Host "Watchdog:" -ForegroundColor Yellow
     Write-Host "  $MENU_RUN_ONCE) Run check once" -ForegroundColor Gray
-    Write-Host "" 
-    Write-Host "Monitoring:" -ForegroundColor Yellow
     Write-Host "  $MENU_MONITOR_LOGS) View logs" -ForegroundColor Gray
+    Write-Host "  $MENU_MAINT_DOWN) Docker Compose Down (stop all containers)" -ForegroundColor Gray
+    Write-Host "  $MENU_BUILD_ALL) Build & Push ALL Docker Images" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "Web UI:" -ForegroundColor Yellow
     Write-Host "  $MENU_START_WEB) Start Web UI (admin interface)" -ForegroundColor Gray
     Write-Host "  $MENU_STOP_WEB) Stop Web UI" -ForegroundColor Gray
-    Write-Host "" 
-    Write-Host "Maintenance:" -ForegroundColor Yellow
-    Write-Host "  $MENU_MAINT_DOWN) Docker Compose Down (stop all containers)" -ForegroundColor Gray
-    Write-Host "" 
-    Write-Host "Build:" -ForegroundColor Yellow
-    Write-Host "  $MENU_BUILD_ALL) Build & Push ALL Docker Images" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "  $MENU_EXIT) Exit" -ForegroundColor Gray
     Write-Host ""

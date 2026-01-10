@@ -8,6 +8,7 @@ $setupDir = Join-Path $scriptDir "setup"
 
 # Import modules
 Import-Module "$setupDir\modules\docker_helpers.ps1" -Force
+Import-Module "$setupDir\modules\browser_helpers.ps1" -Force
 Import-Module "$setupDir\modules\menu_handlers.ps1" -Force
 
 Write-Host "Server Info Watchdog - Quick Start" -ForegroundColor Cyan
