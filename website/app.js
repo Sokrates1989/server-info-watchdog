@@ -13,8 +13,8 @@ let defaultConfig = null;
 const THRESHOLD_LABELS = {
     timestampAgeMinutes: 'Timestamp Age (minutes)',
     cpu: 'CPU Usage (%)',
-    disk: 'Disk Usage (%)',
     memory: 'Memory Usage (%)',
+    disk: 'Disk Usage (%)',
     network_up: 'Network Upstream (bits/s)',
     network_down: 'Network Downstream (bits/s)',
     network_total: 'Network Total (bits/s)',
@@ -177,7 +177,31 @@ function populateForm(config) {
 function populateThresholds(thresholds, currentValues = null) {
     thresholdsContainer.innerHTML = '';
 
-    for (const [key, values] of Object.entries(thresholds)) {
+    // Define the desired order for consistent display
+    const desiredOrder = [
+        'cpu',
+        'memory', 
+        'disk',
+        'gluster_unhealthy_peers',
+        'gluster_unhealthy_volumes',
+        'processes',
+        'network_down',
+        'network_total',
+        'network_up',
+        'users',
+        'updates',
+        'system_restart',
+        'linux_server_state_tool',
+        'timestampAgeMinutes'
+    ];
+
+    // Process thresholds in the desired order
+    for (const key of desiredOrder) {
+        if (!thresholds[key]) {
+            continue; // Skip if threshold doesn't exist
+        }
+        
+        const values = thresholds[key];
         const label = THRESHOLD_LABELS[key] || key;
         const currentValue = currentValues ? currentValues[key] : null;
         const currentValueStr = currentValue !== null ? formatCurrentValue(key, currentValue) : 'N/A';

@@ -60,8 +60,8 @@ class WatchdogConfig:
     DEFAULT_THRESHOLDS = {
         "timestampAgeMinutes": {"warning": "65", "error": "185"},
         "cpu": {"warning": "80", "error": "100"},
-        "disk": {"warning": "75", "error": "90"},
         "memory": {"warning": "75", "error": "90"},
+        "disk": {"warning": "75", "error": "90"},
         "network_up": {"warning": "0", "error": "0"},
         "network_down": {"warning": "0", "error": "0"},
         "network_total": {"warning": "50000000", "error": "100000000"},
