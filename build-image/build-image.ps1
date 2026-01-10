@@ -87,19 +87,24 @@ if ([string]::IsNullOrWhiteSpace($BuilderName)) {
 }
 
 if ($useBuildx) {
-    $inspectOutput = docker buildx inspect $BuilderName 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        if ($inspectOutput -notmatch "Driver:\s+docker-container") {
-            docker buildx rm $BuilderName 2>$null | Out-Null
-            docker buildx create --name $BuilderName --driver docker-container --use | Out-Null
+    try {
+        $inspectOutput = docker buildx inspect $BuilderName 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            if ($inspectOutput -notmatch "Driver:\s+docker-container") {
+                docker buildx rm $BuilderName 2>$null | Out-Null
+                docker buildx create --name $BuilderName --driver docker-container --use | Out-Null
+            } else {
+                docker buildx use $BuilderName | Out-Null
+            }
         } else {
-            docker buildx use $BuilderName | Out-Null
+            docker buildx create --name $BuilderName --driver docker-container --use | Out-Null
         }
-    } else {
-        docker buildx create --name $BuilderName --driver docker-container --use | Out-Null
-    }
 
-    docker buildx inspect --bootstrap | Out-Null
+        docker buildx inspect --bootstrap | Out-Null
+    } catch {
+        Write-Host "[WARNING] Docker buildx not available, falling back to docker build" -ForegroundColor Yellow
+        $useBuildx = $false
+    }
 }
 
 if ($useBuildx) {
@@ -200,7 +205,6 @@ if ($BuildxPushed) {
     }
     
     Write-Host "[OK] All images pushed successfully" -ForegroundColor Green
-}
     
     # Update .env with new version
     if (Test-Path .env) {
@@ -239,9 +243,6 @@ if ($BuildxPushed) {
         $newLines | Set-Content .env -Encoding utf8
         Write-Host "[OK] Updated .env with IMAGE_NAME=$IMAGE_NAME, IMAGE_VERSION=$IMAGE_VERSION, WEB_IMAGE_VERSION=$IMAGE_VERSION" -ForegroundColor Green
     }
-} else {
-    Write-Host "[ERROR] Build failed" -ForegroundColor Red
-    exit 1
 }
 
 Write-Host ""
