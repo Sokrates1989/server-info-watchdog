@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Server Info Watchdog - Admin</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="keycloak-config.js"></script>
+    <script src="keycloak.js"></script>
 </head>
 <body>
     <div class="container">
@@ -19,11 +21,13 @@
         <!-- Login Section -->
         <section id="login-section" class="card">
             <h2>Authentication</h2>
-            <div class="form-group">
-                <label for="admin-token">Admin Token</label>
-                <input type="password" id="admin-token" placeholder="Enter your admin token">
+            
+            <!-- Keycloak Login -->
+            <div id="keycloak-login">
+                <p class="hint">Click below to login with your organization account</p>
+                <button id="keycloak-login-btn" class="btn btn-primary">Login with Keycloak</button>
             </div>
-            <button id="login-btn" class="btn btn-primary">Login</button>
+            
             <p id="login-error" class="error hidden"></p>
         </section>
 

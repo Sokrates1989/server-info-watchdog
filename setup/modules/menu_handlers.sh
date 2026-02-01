@@ -236,6 +236,8 @@ show_main_menu() {
         local MENU_START_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
         local MENU_STOP_WEB=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
 
+        local MENU_KEYCLOAK=$MENU_NEXT; MENU_NEXT=$((MENU_NEXT+1))
+
         local MENU_EXIT=$MENU_NEXT
 
         echo ""
@@ -250,6 +252,9 @@ show_main_menu() {
         echo "Web UI:"
         echo "  ${MENU_START_WEB}) Start Web UI (admin interface)"
         echo "  ${MENU_STOP_WEB}) Stop Web UI"
+        echo ""
+        echo "Authentication:"
+        echo "  ${MENU_KEYCLOAK}) 🔐 Keycloak Bootstrap"
         echo ""
         echo "  ${MENU_EXIT}) Exit"
         echo ""
@@ -291,6 +296,17 @@ show_main_menu() {
           ${MENU_STOP_WEB})
             handle_stop_web_ui "$compose_file"
             summary_msg="Web UI stopped"
+            break
+            ;;
+          ${MENU_KEYCLOAK})
+            MENU_KEYCLOAK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            if [ -f "${MENU_KEYCLOAK_DIR}/menu_keycloak.sh" ]; then
+                source "${MENU_KEYCLOAK_DIR}/menu_keycloak.sh"
+                handle_keycloak_bootstrap
+                summary_msg="Keycloak bootstrap completed"
+            else
+                echo "❌ Keycloak module not found"
+            fi
             break
             ;;
           ${MENU_EXIT})

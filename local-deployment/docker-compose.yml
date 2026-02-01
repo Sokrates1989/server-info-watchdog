@@ -72,6 +72,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile_web
+    env_file:
+      - ../.env
     environment:
       ADMIN_API_HOST: admin-api
       ADMIN_API_PORT: "5000"

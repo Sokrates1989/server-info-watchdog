@@ -1,7 +1,29 @@
 # Dockerfile for Server Info Watchdog Web UI
 # Serves static web UI and proxies API requests to the admin API service
 
+# Stage 1: Build Keycloak JS adapter
+FROM node:20-alpine AS keycloak_js
+
+WORKDIR /app
+
+# Install keycloak-js + esbuild and bundle adapter as IIFE for browser script tag
+RUN npm init -y >/dev/null 2>&1 \
+    && npm install --no-fund --no-audit keycloak-js@26.0.0 esbuild \
+    && echo "import Keycloak from 'keycloak-js'; window.Keycloak = Keycloak;" > /app/entry.js \
+    && npx esbuild /app/entry.js --bundle --format=iife --global-name=KeycloakModule --outfile=/app/keycloak.js
+
+# Stage 2: Final nginx image
 FROM nginx:alpine
+
+# Build argument for web image version (baked at build time)
+ARG IMAGE_TAG=dev
+ENV WEB_IMAGE_TAG=${IMAGE_TAG}
+
+# Keycloak environment variables (set at runtime)
+ENV KEYCLOAK_ENABLED=false
+ENV KEYCLOAK_URL=http://localhost:9090
+ENV KEYCLOAK_REALM=watchdog
+ENV KEYCLOAK_CLIENT_ID=watchdog-frontend
 
 # Install envsubst for nginx config templating
 RUN apk add --no-cache gettext
@@ -9,12 +31,20 @@ RUN apk add --no-cache gettext
 # Copy website files
 COPY website/ /usr/share/nginx/html/
 
+# Copy bundled Keycloak JS adapter from build stage
+COPY --from=keycloak_js /app/keycloak.js /usr/share/nginx/html/keycloak-adapter.js
+
 # Copy nginx configuration template
 COPY docker/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 
+# Copy Keycloak config generator script
+COPY docker/nginx/generate-keycloak-config.sh /docker-entrypoint.d/00-generate-keycloak-config.sh
+
+# Make entrypoint script executable
+RUN chmod +x /docker-entrypoint.d/00-generate-keycloak-config.sh
+
 # Create version file (will be overwritten during build if IMAGE_TAG is set)
-ARG IMAGE_TAG=dev
-RUN echo "{\"version\": \"${IMAGE_TAG}\"}" > /usr/share/nginx/html/version.json
+RUN echo "{\"version\": \"${WEB_IMAGE_TAG}\", \"title\": \"Server Info Watchdog Web\"}" > /usr/share/nginx/html/version.json
 
 # Expose port 80
 EXPOSE 80

@@ -5,7 +5,6 @@
  */
 
 // State
-let adminToken = '';
 let currentConfig = null;
 let defaultConfig = null;
 
@@ -30,8 +29,6 @@ const THRESHOLD_LABELS = {
 // DOM Elements
 const loginSection = document.getElementById('login-section');
 const configSection = document.getElementById('config-section');
-const adminTokenInput = document.getElementById('admin-token');
-const loginBtn = document.getElementById('login-btn');
 const loginError = document.getElementById('login-error');
 const saveBtn = document.getElementById('save-btn');
 const reloadBtn = document.getElementById('reload-btn');
@@ -113,10 +110,17 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     const options = {
         method,
         headers: {
-            'X-Watchdog-Admin-Token': adminToken,
             'Content-Type': 'application/json'
         }
     };
+
+    // Add Keycloak authentication header
+    if (typeof getKeycloakToken === 'function') {
+        const token = await getKeycloakToken();
+        if (token) {
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+    }
 
     if (body) {
         options.body = JSON.stringify(body);
@@ -130,6 +134,11 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         if (response.status === 401) {
             handleLogout();
             throw new Error('Session expired or invalid token');
+        }
+        // Handle 403 Forbidden - user lacks required role
+        if (response.status === 403) {
+            const errorMsg = 'Access denied. You need admin privileges to perform this action.';
+            throw new Error(errorMsg);
         }
         throw new Error(data.error || `HTTP ${response.status}`);
     }
@@ -555,26 +564,40 @@ async function loadConfig(silent = false) {
 }
 
 // Initialize
-function init() {
+async function init() {
     // Load version immediately
     loadVersion();
     
-    // Check for saved token
-    const savedToken = localStorage.getItem('watchdog_admin_token');
-    if (savedToken) {
-        adminToken = savedToken;
-        adminTokenInput.value = savedToken;
-        handleLogin();
+    // Initialize Keycloak
+    let keycloakAuthenticated = false;
+    if (typeof initKeycloak === 'function') {
+        try {
+            keycloakAuthenticated = await initKeycloak();
+            
+            // Setup Keycloak login button
+            const keycloakLoginBtn = document.getElementById('keycloak-login-btn');
+            if (keycloakLoginBtn) {
+                keycloakLoginBtn.addEventListener('click', handleKeycloakLogin);
+            }
+        } catch (error) {
+            console.warn('[App] Keycloak initialization failed:', error);
+            showStatus('Keycloak initialization failed. Please check configuration.', 'error');
+        }
+    } else {
+        showStatus('Keycloak not configured. Please run Keycloak bootstrap.', 'error');
+    }
+    
+    // If Keycloak authenticated, proceed to config
+    if (keycloakAuthenticated) {
+        showConfigSection();
+        return;
     }
 
-    // Event listeners for login form
-    loginBtn.addEventListener('click', handleLogin);
-    adminTokenInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
-    });
-
     // Reset thresholds button
-    resetThresholdsBtn.addEventListener('click', handleResetThresholds);
+    const resetThresholdsBtn = document.getElementById('reset-thresholds-btn');
+    if (resetThresholdsBtn) {
+        resetThresholdsBtn.addEventListener('click', handleResetThresholds);
+    }
     
     // Add refresh current values button
     const refreshCurrentBtn = document.getElementById('refresh-current-btn');
@@ -584,6 +607,48 @@ function init() {
             showStatus('Current values refreshed', 'success');
         });
     }
+}
+
+// Keycloak login handler
+async function handleKeycloakLogin() {
+    try {
+        if (typeof keycloakLogin === 'function') {
+            await keycloakLogin();
+        }
+    } catch (error) {
+        showStatus('Keycloak login failed: ' + error.message, 'error');
+    }
+}
+
+// Show config section after successful authentication
+async function showConfigSection() {
+    const loginSection = document.getElementById('login-section');
+    const configSection = document.getElementById('config-section');
+    
+    if (loginSection) loginSection.classList.add('hidden');
+    if (configSection) configSection.classList.remove('hidden');
+    
+    await loadActionsComponent();
+    await loadDefaults();
+    await loadConfig();
+}
+
+// Handle logout via Keycloak
+async function handleLogout() {
+    if (typeof keycloakLogout === 'function') {
+        try {
+            await keycloakLogout();
+        } catch (error) {
+            console.error('Keycloak logout failed:', error);
+        }
+    }
+    
+    // Show login section
+    const loginSection = document.getElementById('login-section');
+    const configSection = document.getElementById('config-section');
+    
+    if (loginSection) loginSection.classList.remove('hidden');
+    if (configSection) configSection.classList.add('hidden');
 }
 
 // Start

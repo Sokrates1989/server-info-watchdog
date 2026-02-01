@@ -150,6 +150,8 @@ function Show-MainMenu {
     $MENU_START_WEB = $menuNext; $menuNext++
     $MENU_STOP_WEB = $menuNext; $menuNext++
 
+    $MENU_KEYCLOAK = $menuNext; $menuNext++
+
     $MENU_EXIT = $menuNext
 
     Write-Host "" 
@@ -164,6 +166,9 @@ function Show-MainMenu {
     Write-Host "Web UI:" -ForegroundColor Yellow
     Write-Host "  $MENU_START_WEB) Start Web UI (admin interface)" -ForegroundColor Gray
     Write-Host "  $MENU_STOP_WEB) Stop Web UI" -ForegroundColor Gray
+    Write-Host "" 
+    Write-Host "Authentication:" -ForegroundColor Yellow
+    Write-Host "  $MENU_KEYCLOAK) Keycloak Bootstrap" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "  $MENU_EXIT) Exit" -ForegroundColor Gray
     Write-Host ""
@@ -193,6 +198,16 @@ function Show-MainMenu {
         "$MENU_STOP_WEB" {
             Stop-WebUI -ComposeFile $ComposeFile
             $summary = "Web UI stopped"
+        }
+        "$MENU_KEYCLOAK" {
+            $keycloakModule = Join-Path $PSScriptRoot "menu_keycloak.ps1"
+            if (Test-Path $keycloakModule) {
+                . $keycloakModule
+                Invoke-KeycloakBootstrap
+                $summary = "Keycloak bootstrap completed"
+            } else {
+                Write-Host "[ERROR] Keycloak module not found" -ForegroundColor Red
+            }
         }
         "$MENU_EXIT" {
             Write-Host "Goodbye!" -ForegroundColor Cyan

@@ -50,16 +50,34 @@ if (-not (Test-Path .env)) {
     Write-Host ""
 }
 
+# Check if watchdog.env exists (required for admin API)
+if (-not (Test-Path watchdog.env)) {
+    Write-Host "[WARN] watchdog.env file not found" -ForegroundColor Yellow
+    Write-Host ""
+    
+    # Check if it's a directory and remove it
+    if (Test-Path watchdog.env -PathType Container) {
+        Write-Host "[WARN] watchdog.env exists but is a directory, removing..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force watchdog.env
+    }
+    
+    Write-Host "[INFO] Creating watchdog.env file..." -ForegroundColor Cyan
+    if (Test-Path watchdog.env.template) {
+        Copy-Item watchdog.env.template watchdog.env
+        Write-Host "[OK] watchdog.env created from template" -ForegroundColor Green
+    } else {
+        Write-Host "[ERROR] watchdog.env.template not found!" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host ""
+}
+
 # Determine compose file
 $COMPOSE_FILE = "local-deployment\docker-compose.yml"
 
 if (-not (Test-Path $COMPOSE_FILE)) {
-    Write-Host "[WARN] $COMPOSE_FILE not found" -ForegroundColor Yellow
-    # Fall back to old location
-    if (Test-Path "docker-compose.yml") {
-        $COMPOSE_FILE = "docker-compose.yml"
-        Write-Host "   Using fallback: $COMPOSE_FILE" -ForegroundColor Gray
-    }
+    Write-Host "[ERROR] $COMPOSE_FILE not found" -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "Using compose file: $COMPOSE_FILE" -ForegroundColor Cyan

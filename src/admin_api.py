@@ -20,7 +20,7 @@ import os
 import sys
 import time
 from functools import wraps
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from flask import Flask, jsonify, request
 
@@ -28,6 +28,26 @@ from flask import Flask, jsonify, request
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "utils"))
 
 from watchdogConfig import WatchdogConfig, reload_config, get_config as get_watchdog_config
+
+# Keycloak authentication (optional)
+try:
+    from keycloak_auth import (
+        get_keycloak_enabled,
+        get_keycloak_auth,
+        validate_bearer_token,
+        KeycloakUser,
+        ROLE_ADMIN,
+        ROLE_READ,
+    )
+    KEYCLOAK_AVAILABLE = True
+except ImportError:
+    KEYCLOAK_AVAILABLE = False
+    get_keycloak_enabled = lambda: False
+    get_keycloak_auth = lambda: None
+    validate_bearer_token = lambda x: None
+    KeycloakUser = None
+    ROLE_ADMIN = "watchdog:admin"
+    ROLE_READ = "watchdog:read"
 
 CODE_VERSION = "1.0.6 - Build Trace"
 BOOT_ID = os.urandom(4).hex().upper()
@@ -76,8 +96,63 @@ def get_admin_token() -> str:
     return token
 
 
+def _validate_token_auth() -> bool:
+    """Validate admin token authentication.
+
+    Returns:
+        True if token auth succeeds, False otherwise.
+    """
+    admin_token = get_admin_token()
+    if not admin_token:
+        return False
+
+    # Check header first, then query parameter
+    provided_token = request.headers.get("X-Watchdog-Admin-Token", "")
+    if not provided_token:
+        provided_token = request.args.get("token", "")
+
+    return provided_token == admin_token
+
+
+def _validate_keycloak_auth() -> Optional[KeycloakUser]:
+    """Validate Keycloak JWT authentication.
+
+    Returns:
+        KeycloakUser if valid, None otherwise.
+    """
+    if not KEYCLOAK_AVAILABLE or not get_keycloak_enabled():
+        return None
+
+    auth_header = request.headers.get("Authorization", "")
+    return validate_bearer_token(auth_header)
+
+
+def _check_user_has_role(user: Optional[KeycloakUser], required_roles: List[str]) -> bool:
+    """Check if user has any of the required roles.
+
+    Args:
+        user: KeycloakUser or None (token auth).
+        required_roles: List of role names that grant access.
+
+    Returns:
+        True if user has access (token auth or has required role).
+    """
+    # Token auth has full access
+    if user is None:
+        return True
+
+    # Check if user has any of the required roles
+    if KEYCLOAK_AVAILABLE and KeycloakUser is not None:
+        return user.has_any_role(required_roles)
+
+    return False
+
+
 def require_auth(f):
     """Decorator to require admin authentication for endpoints.
+
+    Supports both legacy token auth and Keycloak JWT auth.
+    Token auth gets full access; Keycloak users need watchdog:read or watchdog:admin role.
 
     Args:
         f: The function to wrap.
@@ -87,24 +162,69 @@ def require_auth(f):
     """
     @wraps(f)
     def decorated(*args, **kwargs):
-        admin_token = get_admin_token()
+        # Try Keycloak first if enabled
+        keycloak_user = _validate_keycloak_auth()
+        if keycloak_user is not None:
+            # User authenticated via Keycloak, check roles
+            if not _check_user_has_role(keycloak_user, [ROLE_ADMIN, ROLE_READ]):
+                return jsonify({
+                    "error": f"Access denied. Required role: {ROLE_READ} or {ROLE_ADMIN}."
+                }), 403
+            # Store user in request context for later use
+            request.keycloak_user = keycloak_user
+            return f(*args, **kwargs)
 
-        if not admin_token:
+        # Fallback to token auth
+        if _validate_token_auth():
+            request.keycloak_user = None
+            return f(*args, **kwargs)
+
+        # Neither auth method succeeded
+        admin_token = get_admin_token()
+        if not admin_token and not get_keycloak_enabled():
             return jsonify({"error": "Admin token not configured"}), 503
 
-        # Check header first, then query parameter
-        provided_token = request.headers.get("X-Watchdog-Admin-Token", "")
-        if not provided_token:
-            provided_token = request.args.get("token", "")
+        return jsonify({"error": "Unauthorized"}), 401
 
-        if provided_token != admin_token:
-            # Mask tokens for security but show if they are empty
-            p_masked = provided_token[:1] + "..." if provided_token else "EMPTY"
-            a_masked = admin_token[:1] + "..." if admin_token else "EMPTY"
-            print(f"AUTH FAILED: Provided '{p_masked}' != Expected '{a_masked}'")
-            return jsonify({"error": "Unauthorized"}), 401
+    return decorated
 
-        return f(*args, **kwargs)
+
+def require_write_access(f):
+    """Decorator to require write access (admin role only) for endpoints.
+
+    Token auth gets full access; Keycloak users need watchdog:admin role.
+
+    Args:
+        f: The function to wrap.
+
+    Returns:
+        The wrapped function that checks authentication and admin role.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Try Keycloak first if enabled
+        keycloak_user = _validate_keycloak_auth()
+        if keycloak_user is not None:
+            # User authenticated via Keycloak, check admin role
+            if not _check_user_has_role(keycloak_user, [ROLE_ADMIN]):
+                return jsonify({
+                    "error": f"Access denied. Required role: {ROLE_ADMIN}. Write operations require admin privileges."
+                }), 403
+            request.keycloak_user = keycloak_user
+            return f(*args, **kwargs)
+
+        # Fallback to token auth (has full access)
+        if _validate_token_auth():
+            request.keycloak_user = None
+            return f(*args, **kwargs)
+
+        # Neither auth method succeeded
+        admin_token = get_admin_token()
+        if not admin_token and not get_keycloak_enabled():
+            return jsonify({"error": "Admin token not configured"}), 503
+
+        return jsonify({"error": "Unauthorized"}), 401
+
     return decorated
 
 
@@ -147,7 +267,7 @@ def handle_get_config():
 
 
 @app.route("/v1/admin/config", methods=["POST"])
-@require_auth
+@require_write_access
 def handle_update_config():
     """Update the watchdog configuration by writing to the env file.
 

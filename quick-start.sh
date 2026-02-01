@@ -60,6 +60,27 @@ if [ ! -f .env ]; then
     echo ""
 fi
 
+# Check if watchdog.env exists (required for admin API)
+if [ ! -f watchdog.env ]; then
+    echo "⚠️  watchdog.env file not found"
+    echo ""
+    if [ -d watchdog.env ]; then
+        echo "❌ watchdog.env exists but is a directory, removing..."
+        rm -rf watchdog.env
+    fi
+    
+    echo "📝 Creating watchdog.env file..."
+    if [ -f watchdog.env.template ]; then
+        cp watchdog.env.template watchdog.env
+        echo "✅ watchdog.env created from template"
+    else
+        echo "❌ watchdog.env.template not found!"
+        echo "❌ Cannot continue without watchdog.env.template."
+        exit 1
+    fi
+    echo ""
+fi
+
 # Determine compose file
 COMPOSE_FILE="local-deployment/docker-compose.yml"
 
