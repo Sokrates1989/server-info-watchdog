@@ -70,11 +70,26 @@ def get_keycloak_client_id() -> str:
 
 def get_keycloak_client_secret() -> Optional[str]:
     """
-    Get the Keycloak client secret from environment.
+    Get the Keycloak client secret from environment or Docker secret file.
+
+    Checks KEYCLOAK_CLIENT_SECRET_FILE first (for Docker secrets),
+    then falls back to KEYCLOAK_CLIENT_SECRET environment variable.
 
     Returns:
         Optional[str]: Client secret or None.
     """
+    # Check for Docker secret file first
+    secret_file = os.environ.get("KEYCLOAK_CLIENT_SECRET_FILE")
+    if secret_file and os.path.isfile(secret_file):
+        try:
+            with open(secret_file, "r") as f:
+                secret = f.read().strip()
+                if secret:
+                    return secret
+        except Exception as e:
+            print(f"[KEYCLOAK] Warning: Could not read secret file {secret_file}: {e}")
+    
+    # Fall back to environment variable
     return os.environ.get("KEYCLOAK_CLIENT_SECRET") or None
 
 
