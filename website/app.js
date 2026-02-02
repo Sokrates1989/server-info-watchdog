@@ -30,6 +30,7 @@ const THRESHOLD_LABELS = {
 const loginSection = document.getElementById('login-section');
 const configSection = document.getElementById('config-section');
 const loginError = document.getElementById('login-error');
+const adminTokenInput = document.getElementById('admin-token') || null; // May not exist in Keycloak mode
 const saveBtn = document.getElementById('save-btn');
 const reloadBtn = document.getElementById('reload-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -377,6 +378,12 @@ function showConfig() {
 
 // Event Handlers
 async function handleLogin() {
+    // This function is only used for token-based login, not Keycloak
+    if (!adminTokenInput) {
+        console.error('Admin token input not found - Keycloak mode may be enabled');
+        return;
+    }
+    
     const token = adminTokenInput.value.trim();
     if (!token) {
         loginError.textContent = 'Please enter a token';
@@ -412,7 +419,9 @@ async function handleLogin() {
 
 function handleLogout() {
     showLogin();
-    adminTokenInput.value = '';
+    if (adminTokenInput) {
+        adminTokenInput.value = '';
+    }
 }
 
 function handleResetThresholds() {
