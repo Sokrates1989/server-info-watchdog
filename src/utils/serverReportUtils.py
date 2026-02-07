@@ -431,6 +431,29 @@ class ServerReportUtils:
                     f"({self.server_info_array['updates']['updates_available_output']})"
         serverReport += stateIndicatingIcon + f"<b>Available Updates:</b> {wrap_with_code(updates_info)}\n"
 
+        # Add Kernel information (if available in JSON).
+        if 'kernel' in self.server_info_array:
+            stateIndicatingIcon = ""
+            versions_behind = int(self.server_info_array['kernel'].get('versions_behind', 0))
+            try:
+                thresholds = self.get_thresholds('kernel_versions_behind')
+                if versions_behind >= int(float(thresholds.error)) and int(float(thresholds.error)) != 0:
+                    hasError = True
+                    stateIndicatingIcon = errorIcon
+                elif versions_behind >= int(float(thresholds.warning)) and int(float(thresholds.warning)) != 0:
+                    hasWarning = True
+                    stateIndicatingIcon = warningIcon
+            except Exception:
+                pass
+            running = self.server_info_array['kernel'].get('running_kernel', 'unknown')
+            installed = self.server_info_array['kernel'].get('installed_version', 'unknown')
+            candidate = self.server_info_array['kernel'].get('candidate_version', 'unknown')
+            if versions_behind > 0:
+                kernel_info_str = f"{running} ({installed} → {candidate}, {versions_behind} behind)"
+            else:
+                kernel_info_str = f"{running} (up to date)"
+            serverReport += stateIndicatingIcon + f"<b>Kernel:</b> {wrap_with_code(kernel_info_str)}\n"
+
         # Add System Restart information with an if-else statement.
         thresholds = self.get_thresholds('system_restart')
         stateIndicatingIcon = ""

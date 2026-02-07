@@ -20,6 +20,7 @@ const THRESHOLD_LABELS = {
     processes: 'Process Count',
     users: 'Logged In Users',
     updates: 'Available Updates',
+    kernel_versions_behind: 'Kernel Versions Behind',
     system_restart: 'System Restart Required',
     linux_server_state_tool: 'Tool Commits Behind',
     gluster_unhealthy_peers: 'Gluster Unhealthy Peers',
@@ -200,6 +201,7 @@ function populateThresholds(thresholds, currentValues = null) {
         'network_up',
         'users',
         'updates',
+        'kernel_versions_behind',
         'system_restart',
         'linux_server_state_tool',
         'timestampAgeMinutes'
@@ -279,6 +281,7 @@ function formatCurrentValue(key, value) {
             return `${value} min old`;
         case 'system_restart':
             return `${value} days`;
+        case 'kernel_versions_behind':
         case 'processes':
         case 'users':
         case 'updates':

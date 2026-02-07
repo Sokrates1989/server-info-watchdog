@@ -396,6 +396,7 @@ def handle_get_system_state():
                     "linux_server_state_tool": int(system_state.get("linux_server_state_tool", {}).get("behind_count", 0)),
                     "gluster_unhealthy_peers": int(system_state.get("gluster", {}).get("number_of_unhealthy_peers", 0)),
                     "gluster_unhealthy_volumes": int(system_state.get("gluster", {}).get("number_of_unhealthy_volumes", 0)),
+                    "kernel_versions_behind": int(system_state.get("kernel", {}).get("versions_behind", 0)),
                     "network_up": float(system_state.get("network", {}).get("upstream_avg_bits", 0)),
                     "network_down": float(system_state.get("network", {}).get("downstream_avg_bits", 0)),
                     "network_total": float(system_state.get("network", {}).get("total_network_avg_bits", 0)),

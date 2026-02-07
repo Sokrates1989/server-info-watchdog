@@ -69,6 +69,7 @@ class WatchdogConfig:
         "users": {"warning": "2", "error": "3"},
         "updates": {"warning": "10", "error": "25"},
         "system_restart": {"warning": "10d", "error": "50d"},
+        "kernel_versions_behind": {"warning": "1", "error": "10"},
         "linux_server_state_tool": {"warning": "1", "error": "5"},
         "gluster_unhealthy_peers": {"warning": "1", "error": "2"},
         "gluster_unhealthy_volumes": {"warning": "1", "error": "2"},
@@ -214,17 +215,40 @@ class WatchdogConfig:
                  # Print first/last char to verify without leaking
                 print(f"DEBUG: admin_token starts with: {self.admin_token[0] if self.admin_token else 'N/A'}")
 
+    # Mapping of deprecated threshold keys to their replacements.
+    _THRESHOLD_MIGRATIONS = {
+        "kernel_outdated_packages": "kernel_versions_behind",
+        "kernel_update_available": "kernel_versions_behind",
+    }
+
     def _load_thresholds(self) -> None:
-        """Load threshold configuration from JSON env var or defaults."""
+        """Load threshold configuration from JSON env var, merged with defaults.
+
+        Ensures new default thresholds are always present even if the env
+        file uses an older config. Also migrates deprecated threshold keys
+        (e.g. kernel_outdated_packages → kernel_versions_behind).
+        """
         thresholds_json = self._get_value("WATCHDOG_THRESHOLDS_JSON", "")
 
         if thresholds_json:
             try:
-                self.thresholds = json.loads(thresholds_json)
+                loaded = json.loads(thresholds_json)
             except json.JSONDecodeError as e:
                 print(f"Warning: Invalid WATCHDOG_THRESHOLDS_JSON: {e}")
                 print("Using default thresholds.")
                 self.thresholds = self.DEFAULT_THRESHOLDS.copy()
+                return
+
+            # Migrate deprecated keys
+            for old_key, new_key in self._THRESHOLD_MIGRATIONS.items():
+                if old_key in loaded and new_key not in loaded:
+                    loaded[new_key] = loaded.pop(old_key)
+                elif old_key in loaded and new_key in loaded:
+                    del loaded[old_key]
+
+            # Merge: start with defaults, then overlay loaded values
+            self.thresholds = self.DEFAULT_THRESHOLDS.copy()
+            self.thresholds.update(loaded)
         else:
             self.thresholds = self.DEFAULT_THRESHOLDS.copy()
 
