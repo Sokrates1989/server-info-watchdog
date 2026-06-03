@@ -257,10 +257,14 @@ function populateThresholds(thresholds, currentValues = null) {
             const current = parseFloat(currentValue);
             
             if (!isNaN(current) && !isNaN(warningThreshold) && !isNaN(errorThreshold)) {
-                if (current >= errorThreshold) {
+                // Negative thresholds are used as "disabled" sentinels (e.g. fan_speed=-1 when no fans present).
+                if (warningThreshold < 0 && errorThreshold < 0) {
+                    statusClass = 'status-ok';
+                    statusIcon = '🟢';
+                } else if (current >= errorThreshold && errorThreshold >= 0) {
                     statusClass = 'status-error';
                     statusIcon = '🔴';
-                } else if (current >= warningThreshold) {
+                } else if (current >= warningThreshold && warningThreshold >= 0) {
                     statusClass = 'status-warning';
                     statusIcon = '🟡';
                 } else {

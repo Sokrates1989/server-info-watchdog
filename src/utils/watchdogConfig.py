@@ -76,16 +76,16 @@ class WatchdogConfig:
         # Hardware metrics
         "temperature_cpu": {"warning": "83", "error": "90"},
         "temperature_gpu": {"warning": "80", "error": "90"},
-        "fan_speed": {"warning": "0", "error": "0"},
+        "fan_speed": {"warning": "-1", "error": "-1"},
         # Performance metrics
         "io_wait": {"warning": "10", "error": "20"},
         "system_load_1min": {"warning": "2", "error": "4"},
         "file_descriptors": {"warning": "80", "error": "90"},
         # Storage health
-        "smart_health_failed": {"warning": "0", "error": "1"},
+        "smart_health_failed": {"warning": "1", "error": "2"},
         # Storage arrays
-        "zfs_pool_degraded": {"warning": "0", "error": "1"},
-        "raid_array_degraded": {"warning": "0", "error": "1"},
+        "zfs_pool_degraded": {"warning": "1", "error": "2"},
+        "raid_array_degraded": {"warning": "1", "error": "2"},
         # Network errors
         "network_error_rate": {"warning": "0.1", "error": "1"},
         # Time sync
