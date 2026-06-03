@@ -118,6 +118,10 @@ def get_raid_degraded_count(raid_data: Dict[str, Any]) -> int:
 
 app = Flask(__name__)
 
+# Module-level constants.
+CODE_VERSION = "2.2.0"
+BOOT_ID = os.urandom(4).hex().upper()
+
 # Configuration
 ENV_FILE_PATH = os.getenv("WATCHDOG_ENV_FILE", "/code/watchdog.env")
 
