@@ -49,8 +49,72 @@ except ImportError:
     ROLE_ADMIN = "watchdog:admin"
     ROLE_READ = "watchdog:read"
 
-CODE_VERSION = "1.0.6 - Build Trace"
-BOOT_ID = os.urandom(4).hex().upper()
+
+def safe_float(value: Any) -> float:
+    """
+    Safely convert a value to float, returning 0.0 for non-numeric values.
+
+    Args:
+        value: The value to convert.
+
+    Returns:
+        float: The converted float value, or 0.0 if conversion fails.
+    """
+    try:
+        if value == "N/A" or value is None:
+            return 0.0
+        return float(value)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def get_smart_failed_count(disk_smart: Dict[str, Any]) -> int:
+    """
+    Count the number of failed disks in SMART health data.
+
+    Args:
+        disk_smart: The disk_smart dictionary from system state.
+
+    Returns:
+        int: Number of failed disks.
+    """
+    if disk_smart.get("status") != "available":
+        return 0
+    devices = disk_smart.get("devices", [])
+    return sum(1 for device in devices if device.get("health") == "failed")
+
+
+def get_zfs_degraded_count(zfs_data: Dict[str, Any]) -> int:
+    """
+    Count the number of degraded ZFS pools.
+
+    Args:
+        zfs_data: The zfs dictionary from storage_arrays.
+
+    Returns:
+        int: Number of degraded ZFS pools.
+    """
+    if zfs_data.get("status") != "available":
+        return 0
+    pools = zfs_data.get("pools", [])
+    return sum(1 for pool in pools if pool.get("health") not in ["ONLINE", "healthy"])
+
+
+def get_raid_degraded_count(raid_data: Dict[str, Any]) -> int:
+    """
+    Count the number of degraded RAID arrays.
+
+    Args:
+        raid_data: The raid dictionary from storage_arrays.
+
+    Returns:
+        int: Number of degraded RAID arrays.
+    """
+    if raid_data.get("status") != "available":
+        return 0
+    arrays = raid_data.get("arrays", [])
+    return sum(1 for array in arrays if array.get("state") not in ["clean", "active", "optimal"])
+
 
 app = Flask(__name__)
 
@@ -400,7 +464,22 @@ def handle_get_system_state():
                     "network_up": float(system_state.get("network", {}).get("upstream_avg_bits", 0)),
                     "network_down": float(system_state.get("network", {}).get("downstream_avg_bits", 0)),
                     "network_total": float(system_state.get("network", {}).get("total_network_avg_bits", 0)),
-                    "timestampAgeMinutes": int((time.time() - int(system_state.get("timestamp", {}).get("unix_format", 0))) / 60)
+                    "timestampAgeMinutes": int((time.time() - int(system_state.get("timestamp", {}).get("unix_format", 0))) / 60),
+                    # Hardware metrics
+                    "temperature_cpu": safe_float(system_state.get("hardware", {}).get("cpu_temperature_celsius", "N/A")),
+                    "temperature_gpu": safe_float(system_state.get("hardware", {}).get("gpu_temperature_celsius", "N/A")),
+                    "fan_speed": safe_float(system_state.get("hardware", {}).get("fan_speed_rpm", "N/A")),
+                    # Performance metrics
+                    "io_wait": safe_float(system_state.get("io_wait", {}).get("io_wait_percentage", "N/A")),
+                    "system_load_1min": safe_float(system_state.get("system_load", {}).get("load_1min", "N/A")),
+                    "file_descriptors": safe_float(system_state.get("file_descriptors", {}).get("usage_percent", "N/A")),
+                    # Storage health
+                    "smart_health_failed": get_smart_failed_count(system_state.get("disk_smart", {})),
+                    # Storage arrays
+                    "zfs_pool_degraded": get_zfs_degraded_count(system_state.get("storage_arrays", {}).get("zfs", {})),
+                    "raid_array_degraded": get_raid_degraded_count(system_state.get("storage_arrays", {}).get("raid", {})),
+                    # Time sync
+                    "ntp_offset_ms": safe_float(system_state.get("ntp_sync", {}).get("offset_ms", "N/A")),
                 },
                 "thresholds": thresholds
             }

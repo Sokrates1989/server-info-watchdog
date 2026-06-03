@@ -500,6 +500,202 @@ class ServerReportUtils:
         serverReport += f"<b>Linux Server State Tool:</b> {wrap_with_code(tool_info)}\n"
 
         
+        # Hardware Metrics (with error handling)
+        if 'hardware' in self.server_info_array:
+            # CPU Temperature
+            thresholds = self.get_thresholds('temperature_cpu')
+            stateIndicatingIcon = ""
+            cpu_temp_str = self.server_info_array['hardware'].get('cpu_temperature_celsius', 'N/A')
+            if cpu_temp_str != 'N/A' and 'not available' not in cpu_temp_str.lower():
+                try:
+                    system_value = float(cpu_temp_str)
+                    if system_value >= float(thresholds.error):
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value >= float(thresholds.warning):
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            serverReport += stateIndicatingIcon + f"<b>CPU Temperature:</b> {wrap_with_code(cpu_temp_str)}°C\n"
+
+            # Fan Speed
+            fan_speed_str = self.server_info_array['hardware'].get('fan_speed_rpm', 'N/A')
+            if fan_speed_str != 'N/A' and 'not available' not in fan_speed_str.lower():
+                thresholds = self.get_thresholds('fan_speed')
+                stateIndicatingIcon = ""
+                try:
+                    system_value = float(fan_speed_str)
+                    if system_value <= float(thresholds.error) and float(thresholds.error) != 0:
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value <= float(thresholds.warning) and float(thresholds.warning) != 0:
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            serverReport += stateIndicatingIcon + f"<b>Fan Speed:</b> {wrap_with_code(fan_speed_str)} RPM\n"
+
+            # GPU Temperature
+            gpu_temp_str = self.server_info_array['hardware'].get('gpu_temperature_celsius', 'N/A')
+            if gpu_temp_str != 'N/A' and 'not available' not in gpu_temp_str.lower():
+                thresholds = self.get_thresholds('temperature_gpu')
+                stateIndicatingIcon = ""
+                try:
+                    system_value = float(gpu_temp_str)
+                    if system_value >= float(thresholds.error):
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value >= float(thresholds.warning):
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            serverReport += stateIndicatingIcon + f"<b>GPU Temperature:</b> {wrap_with_code(gpu_temp_str)}°C\n"
+
+        # Performance Metrics
+        # I/O Wait
+        if 'io_wait' in self.server_info_array:
+            thresholds = self.get_thresholds('io_wait')
+            stateIndicatingIcon = ""
+            io_wait_str = self.server_info_array['io_wait'].get('io_wait_percentage', 'N/A')
+            if io_wait_str != 'N/A':
+                try:
+                    system_value = float(io_wait_str)
+                    if system_value >= float(thresholds.error):
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value >= float(thresholds.warning):
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            serverReport += stateIndicatingIcon + f"<b>I/O Wait:</b> {wrap_with_code(io_wait_str)}%\n"
+
+        # System Load
+        if 'system_load' in self.server_info_array:
+            thresholds = self.get_thresholds('system_load_1min')
+            stateIndicatingIcon = ""
+            load_1min_str = self.server_info_array['system_load'].get('load_1min', 'N/A')
+            if load_1min_str != 'N/A':
+                try:
+                    system_value = float(load_1min_str)
+                    if system_value >= float(thresholds.error):
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value >= float(thresholds.warning):
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            load_5min_str = self.server_info_array['system_load'].get('load_5min', 'N/A')
+            load_15min_str = self.server_info_array['system_load'].get('load_15min', 'N/A')
+            load_info = f"{load_1min_str} (1min), {load_5min_str} (5min), {load_15min_str} (15min)"
+            serverReport += stateIndicatingIcon + f"<b>System Load:</b> {wrap_with_code(load_info)}\n"
+
+        # File Descriptors
+        if 'file_descriptors' in self.server_info_array:
+            thresholds = self.get_thresholds('file_descriptors')
+            stateIndicatingIcon = ""
+            fd_usage_str = self.server_info_array['file_descriptors'].get('usage_percent', 'N/A')
+            if fd_usage_str != 'N/A':
+                try:
+                    system_value = float(fd_usage_str)
+                    if system_value >= float(thresholds.error):
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value >= float(thresholds.warning):
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            fd_allocated = self.server_info_array['file_descriptors'].get('allocated', 'N/A')
+            fd_maximum = self.server_info_array['file_descriptors'].get('maximum', 'N/A')
+            fd_info = f"{fd_usage_str}% ({fd_allocated} of {fd_maximum})"
+            serverReport += stateIndicatingIcon + f"<b>File Descriptors:</b> {wrap_with_code(fd_info)}\n"
+
+        # Disk SMART Health
+        if 'disk_smart' in self.server_info_array:
+            smart_status = self.server_info_array['disk_smart'].get('status', 'N/A')
+            stateIndicatingIcon = ""
+            if smart_status == 'available':
+                devices = self.server_info_array['disk_smart'].get('devices', [])
+                failed_count = 0
+                for device in devices:
+                    if device.get('health') == 'failed':
+                        failed_count += 1
+                thresholds = self.get_thresholds('smart_health_failed')
+                if failed_count >= int(float(thresholds.error)):
+                    hasError = True
+                    stateIndicatingIcon = errorIcon
+                elif failed_count >= int(float(thresholds.warning)):
+                    hasWarning = True
+                    stateIndicatingIcon = warningIcon
+            serverReport += stateIndicatingIcon + f"<b>Disk SMART:</b> {wrap_with_code(smart_status)}\n"
+
+        # Storage Arrays (ZFS/RAID)
+        if 'storage_arrays' in self.server_info_array:
+            zfs_status = self.server_info_array['storage_arrays'].get('zfs', {}).get('status', 'N/A')
+            raid_status = self.server_info_array['storage_arrays'].get('raid', {}).get('status', 'N/A')
+            stateIndicatingIcon = ""
+            
+            # Check ZFS
+            if zfs_status == 'available':
+                pools = self.server_info_array['storage_arrays'].get('zfs', {}).get('pools', [])
+                degraded_count = 0
+                for pool in pools:
+                    if pool.get('health') not in ['ONLINE', 'healthy']:
+                        degraded_count += 1
+                thresholds = self.get_thresholds('zfs_pool_degraded')
+                if degraded_count >= int(float(thresholds.error)):
+                    hasError = True
+                    stateIndicatingIcon = errorIcon
+                elif degraded_count >= int(float(thresholds.warning)):
+                    hasWarning = True
+                    stateIndicatingIcon = warningIcon
+            
+            # Check RAID
+            if raid_status == 'available':
+                arrays = self.server_info_array['storage_arrays'].get('raid', {}).get('arrays', [])
+                degraded_count = 0
+                for array in arrays:
+                    if array.get('state') not in ['clean', 'active', 'optimal']:
+                        degraded_count += 1
+                thresholds = self.get_thresholds('raid_array_degraded')
+                if degraded_count >= int(float(thresholds.error)):
+                    hasError = True
+                    stateIndicatingIcon = errorIcon
+                elif degraded_count >= int(float(thresholds.warning)):
+                    hasWarning = True
+                    stateIndicatingIcon = warningIcon
+            
+            serverReport += stateIndicatingIcon + f"<b>Storage Arrays:</b> {wrap_with_code(f'ZFS: {zfs_status}, RAID: {raid_status}')}\n"
+
+        # NTP Sync
+        if 'ntp_sync' in self.server_info_array:
+            ntp_status = self.server_info_array['ntp_sync'].get('status', 'N/A')
+            ntp_offset = self.server_info_array['ntp_sync'].get('offset_ms', 'N/A')
+            stateIndicatingIcon = ""
+            
+            if ntp_offset != 'N/A':
+                try:
+                    thresholds = self.get_thresholds('ntp_offset_ms')
+                    system_value = float(ntp_offset)
+                    if system_value >= float(thresholds.error):
+                        hasError = True
+                        stateIndicatingIcon = errorIcon
+                    elif system_value >= float(thresholds.warning):
+                        hasWarning = True
+                        stateIndicatingIcon = warningIcon
+                except (ValueError, TypeError):
+                    pass
+            
+            ntp_info = f"{ntp_status}"
+            if ntp_offset != 'N/A':
+                ntp_info += f" (offset: {ntp_offset}ms)"
+            serverReport += stateIndicatingIcon + f"<b>NTP Sync:</b> {wrap_with_code(ntp_info)}\n"
+
+        
         # Determine overall server state, adapt heading and concenate with rest of report.
         stateIndicatingIcon = ""
         if hasError == True:

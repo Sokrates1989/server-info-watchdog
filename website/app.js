@@ -24,7 +24,22 @@ const THRESHOLD_LABELS = {
     system_restart: 'System Restart Required',
     linux_server_state_tool: 'Tool Commits Behind',
     gluster_unhealthy_peers: 'Gluster Unhealthy Peers',
-    gluster_unhealthy_volumes: 'Gluster Unhealthy Volumes'
+    gluster_unhealthy_volumes: 'Gluster Unhealthy Volumes',
+    // Hardware metrics
+    temperature_cpu: 'CPU Temperature (°C)',
+    temperature_gpu: 'GPU Temperature (°C)',
+    fan_speed: 'Fan Speed (RPM)',
+    // Performance metrics
+    io_wait: 'I/O Wait (%)',
+    system_load_1min: 'System Load (1min)',
+    file_descriptors: 'File Descriptors (%)',
+    // Storage health
+    smart_health_failed: 'SMART Failed Disks',
+    // Storage arrays
+    zfs_pool_degraded: 'ZFS Degraded Pools',
+    raid_array_degraded: 'RAID Degraded Arrays',
+    // Time sync
+    ntp_offset_ms: 'NTP Offset (ms)'
 };
 
 // DOM Elements
@@ -193,6 +208,20 @@ function populateThresholds(thresholds, currentValues = null) {
         'cpu',
         'memory', 
         'disk',
+        // Hardware metrics
+        'temperature_cpu',
+        'temperature_gpu',
+        'fan_speed',
+        // Performance metrics
+        'io_wait',
+        'system_load_1min',
+        'file_descriptors',
+        // Storage health
+        'smart_health_failed',
+        // Storage arrays
+        'zfs_pool_degraded',
+        'raid_array_degraded',
+        // Original metrics
         'gluster_unhealthy_peers',
         'gluster_unhealthy_volumes',
         'processes',
@@ -204,6 +233,7 @@ function populateThresholds(thresholds, currentValues = null) {
         'kernel_versions_behind',
         'system_restart',
         'linux_server_state_tool',
+        'ntp_offset_ms',
         'timestampAgeMinutes'
     ];
 
@@ -272,6 +302,8 @@ function formatCurrentValue(key, value) {
         case 'cpu':
         case 'disk':
         case 'memory':
+        case 'io_wait':
+        case 'file_descriptors':
             return `${value}%`;
         case 'network_up':
         case 'network_down':
@@ -288,7 +320,19 @@ function formatCurrentValue(key, value) {
         case 'linux_server_state_tool':
         case 'gluster_unhealthy_peers':
         case 'gluster_unhealthy_volumes':
+        case 'smart_health_failed':
+        case 'zfs_pool_degraded':
+        case 'raid_array_degraded':
             return value.toString();
+        case 'temperature_cpu':
+        case 'temperature_gpu':
+            return `${value}°C`;
+        case 'fan_speed':
+            return `${value} RPM`;
+        case 'system_load_1min':
+            return value.toString();
+        case 'ntp_offset_ms':
+            return `${value} ms`;
         default:
             return value.toString();
     }

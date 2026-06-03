@@ -73,6 +73,23 @@ class WatchdogConfig:
         "linux_server_state_tool": {"warning": "1", "error": "5"},
         "gluster_unhealthy_peers": {"warning": "1", "error": "2"},
         "gluster_unhealthy_volumes": {"warning": "1", "error": "2"},
+        # Hardware metrics
+        "temperature_cpu": {"warning": "83", "error": "90"},
+        "temperature_gpu": {"warning": "80", "error": "90"},
+        "fan_speed": {"warning": "0", "error": "0"},
+        # Performance metrics
+        "io_wait": {"warning": "10", "error": "20"},
+        "system_load_1min": {"warning": "2", "error": "4"},
+        "file_descriptors": {"warning": "80", "error": "90"},
+        # Storage health
+        "smart_health_failed": {"warning": "0", "error": "1"},
+        # Storage arrays
+        "zfs_pool_degraded": {"warning": "0", "error": "1"},
+        "raid_array_degraded": {"warning": "0", "error": "1"},
+        # Network errors
+        "network_error_rate": {"warning": "0.1", "error": "1"},
+        # Time sync
+        "ntp_offset_ms": {"warning": "100", "error": "500"},
     }
 
     # Default message frequency
