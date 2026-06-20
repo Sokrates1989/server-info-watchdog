@@ -521,9 +521,9 @@ class ServerReportUtils:
 
             # Fan Speed
             fan_speed_str = self.server_info_array['hardware'].get('fan_speed_rpm', 'N/A')
+            stateIndicatingIcon = ""
             if fan_speed_str != 'N/A' and 'not available' not in fan_speed_str.lower():
                 thresholds = self.get_thresholds('fan_speed')
-                stateIndicatingIcon = ""
                 try:
                     system_value = float(fan_speed_str)
                     if system_value <= float(thresholds.error) and float(thresholds.error) != 0:
@@ -572,26 +572,17 @@ class ServerReportUtils:
                     pass
             serverReport += stateIndicatingIcon + f"<b>I/O Wait:</b> {wrap_with_code(io_wait_str)}%\n"
 
-        # System Load
+        # System Load - informational only, no threshold alerting (CPU Usage % already covers this)
         if 'system_load' in self.server_info_array:
-            thresholds = self.get_thresholds('system_load_1min')
-            stateIndicatingIcon = ""
             load_1min_str = self.server_info_array['system_load'].get('load_1min', 'N/A')
-            if load_1min_str != 'N/A':
-                try:
-                    system_value = float(load_1min_str)
-                    if system_value >= float(thresholds.error):
-                        hasError = True
-                        stateIndicatingIcon = errorIcon
-                    elif system_value >= float(thresholds.warning):
-                        hasWarning = True
-                        stateIndicatingIcon = warningIcon
-                except (ValueError, TypeError):
-                    pass
             load_5min_str = self.server_info_array['system_load'].get('load_5min', 'N/A')
             load_15min_str = self.server_info_array['system_load'].get('load_15min', 'N/A')
+            norm_15_str = self.server_info_array['system_load'].get('normalized_15min_percent', 'N/A')
+            cpu_cores_str = self.server_info_array['system_load'].get('cpu_cores', 'N/A')
             load_info = f"{load_1min_str} (1min), {load_5min_str} (5min), {load_15min_str} (15min)"
-            serverReport += stateIndicatingIcon + f"<b>System Load:</b> {wrap_with_code(load_info)}\n"
+            if norm_15_str != 'N/A' and cpu_cores_str != 'N/A':
+                load_info += f" | ~{norm_15_str}% utilized ({cpu_cores_str} cores)"
+            serverReport += f"<b>System Load:</b> {wrap_with_code(load_info)}\n"
 
         # File Descriptors
         if 'file_descriptors' in self.server_info_array:
@@ -659,7 +650,11 @@ class ServerReportUtils:
                 arrays = self.server_info_array['storage_arrays'].get('raid', {}).get('arrays', [])
                 degraded_count = 0
                 for array in arrays:
-                    if array.get('state') not in ['clean', 'active', 'optimal']:
+                    state = array.get('state', '').strip()
+                    state_lower = state.lower()
+                    is_healthy = any(s in state_lower for s in ['clean', 'active', 'optimal'])
+                    is_degraded = 'degraded' in state_lower or 'failed' in state_lower
+                    if not is_healthy or is_degraded:
                         degraded_count += 1
                 thresholds = self.get_thresholds('raid_array_degraded')
                 if degraded_count >= int(float(thresholds.error)):

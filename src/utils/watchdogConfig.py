@@ -79,7 +79,6 @@ class WatchdogConfig:
         "fan_speed": {"warning": "-1", "error": "-1"},
         # Performance metrics
         "io_wait": {"warning": "10", "error": "20"},
-        "system_load_1min": {"warning": "2", "error": "4"},
         "file_descriptors": {"warning": "80", "error": "90"},
         # Storage health
         "smart_health_failed": {"warning": "1", "error": "2"},

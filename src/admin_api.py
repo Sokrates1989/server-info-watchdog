@@ -113,7 +113,14 @@ def get_raid_degraded_count(raid_data: Dict[str, Any]) -> int:
     if raid_data.get("status") != "available":
         return 0
     arrays = raid_data.get("arrays", [])
-    return sum(1 for array in arrays if array.get("state") not in ["clean", "active", "optimal"])
+    degraded_count = 0
+    for array in arrays:
+        state = array.get("state", "").strip().lower()
+        is_healthy = any(s in state for s in ["clean", "active", "optimal"])
+        is_degraded = "degraded" in state or "failed" in state
+        if not is_healthy or is_degraded:
+            degraded_count += 1
+    return degraded_count
 
 
 app = Flask(__name__)
@@ -475,7 +482,6 @@ def handle_get_system_state():
                     "fan_speed": safe_float(system_state.get("hardware", {}).get("fan_speed_rpm", "N/A")),
                     # Performance metrics
                     "io_wait": safe_float(system_state.get("io_wait", {}).get("io_wait_percentage", "N/A")),
-                    "system_load_1min": safe_float(system_state.get("system_load", {}).get("load_1min", "N/A")),
                     "file_descriptors": safe_float(system_state.get("file_descriptors", {}).get("usage_percent", "N/A")),
                     # Storage health
                     "smart_health_failed": get_smart_failed_count(system_state.get("disk_smart", {})),

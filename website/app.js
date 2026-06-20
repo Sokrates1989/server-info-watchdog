@@ -31,7 +31,6 @@ const THRESHOLD_LABELS = {
     fan_speed: 'Fan Speed (RPM)',
     // Performance metrics
     io_wait: 'I/O Wait (%)',
-    system_load_1min: 'System Load (1min)',
     file_descriptors: 'File Descriptors (%)',
     // Storage health
     smart_health_failed: 'SMART Failed Disks',
@@ -214,7 +213,6 @@ function populateThresholds(thresholds, currentValues = null) {
         'fan_speed',
         // Performance metrics
         'io_wait',
-        'system_load_1min',
         'file_descriptors',
         // Storage health
         'smart_health_failed',
@@ -333,8 +331,6 @@ function formatCurrentValue(key, value) {
             return `${value}°C`;
         case 'fan_speed':
             return `${value} RPM`;
-        case 'system_load_1min':
-            return value.toString();
         case 'ntp_offset_ms':
             return `${value} ms`;
         default:
