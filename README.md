@@ -15,6 +15,11 @@ Using a different chat, that uses other -more intrusive- notification settings o
 # Environment Vars
 Pass warning and error limits/ thresholds based on the servers capabilities and your requirments in percentages.
 
+## Quick Start Shortcuts
+
+The numbered quick-start options remain supported. Press `p` to build and
+publish all Docker images or `b` to run Keycloak bootstrap directly.
+
 
 # Push image to dockerhub
 

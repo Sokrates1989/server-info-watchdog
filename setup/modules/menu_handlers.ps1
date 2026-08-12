@@ -161,18 +161,23 @@ function Show-MainMenu {
     Write-Host "  $MENU_RUN_ONCE) Run check once" -ForegroundColor Gray
     Write-Host "  $MENU_MONITOR_LOGS) View logs" -ForegroundColor Gray
     Write-Host "  $MENU_MAINT_DOWN) Docker Compose Down (stop all containers)" -ForegroundColor Gray
-    Write-Host "  $MENU_BUILD_ALL) Build & Push ALL Docker Images" -ForegroundColor Gray
+    Write-Host "  $MENU_BUILD_ALL/p) Build & Push ALL Docker Images" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "Web UI:" -ForegroundColor Yellow
     Write-Host "  $MENU_START_WEB) Start Web UI (admin interface)" -ForegroundColor Gray
     Write-Host "  $MENU_STOP_WEB) Stop Web UI" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "Authentication:" -ForegroundColor Yellow
-    Write-Host "  $MENU_KEYCLOAK) Keycloak Bootstrap" -ForegroundColor Gray
+    Write-Host "  $MENU_KEYCLOAK/b) Keycloak Bootstrap" -ForegroundColor Gray
     Write-Host "" 
     Write-Host "  $MENU_EXIT) Exit" -ForegroundColor Gray
     Write-Host ""
-    $choice = Read-Host "Your choice (1-$MENU_EXIT)"
+    $choice = Read-Host "Your choice (1-$MENU_EXIT, p/b)"
+    if ($choice -ieq "p") {
+        $choice = "$MENU_BUILD_ALL"
+    } elseif ($choice -ieq "b") {
+        $choice = "$MENU_KEYCLOAK"
+    }
 
     switch ($choice) {
         "$MENU_RUN_ONCE" {

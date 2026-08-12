@@ -247,24 +247,24 @@ show_main_menu() {
         echo "  ${MENU_RUN_ONCE}) Run check once"
         echo "  ${MENU_MONITOR_LOGS}) View logs"
         echo "  ${MENU_MAINT_DOWN}) Docker Compose Down (stop all containers)"
-        echo "  ${MENU_BUILD_ALL}) Build & Push ALL Docker Images"
+        echo "  ${MENU_BUILD_ALL}/p) Build & Push ALL Docker Images"
         echo ""
         echo "Web UI:"
         echo "  ${MENU_START_WEB}) Start Web UI (admin interface)"
         echo "  ${MENU_STOP_WEB}) Stop Web UI"
         echo ""
         echo "Authentication:"
-        echo "  ${MENU_KEYCLOAK}) 🔐 Keycloak Bootstrap"
+        echo "  ${MENU_KEYCLOAK}/b) 🔐 Keycloak Bootstrap"
         echo ""
         echo "  ${MENU_EXIT}) Exit"
         echo ""
 
         if [ -n "${QUICK_START_CHOICE:-}" ]; then
             choice="${QUICK_START_CHOICE}"
-            echo "Your choice (1-${MENU_EXIT}): ${choice}"
+            echo "Your choice (1-${MENU_EXIT}, p/b): ${choice}"
             unset QUICK_START_CHOICE
         else
-            read_prompt "Your choice (1-${MENU_EXIT}): " choice
+            read_prompt "Your choice (1-${MENU_EXIT}, p/b): " choice
         fi
 
         case $choice in
@@ -283,7 +283,7 @@ show_main_menu() {
             summary_msg="Docker Compose Down executed"
             break
             ;;
-          ${MENU_BUILD_ALL})
+          ${MENU_BUILD_ALL}|p|P)
             handle_build_and_push_all_images
             summary_msg="All images built & pushed"
             break
@@ -298,7 +298,7 @@ show_main_menu() {
             summary_msg="Web UI stopped"
             break
             ;;
-          ${MENU_KEYCLOAK})
+          ${MENU_KEYCLOAK}|b|B)
             MENU_KEYCLOAK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             if [ -f "${MENU_KEYCLOAK_DIR}/menu_keycloak.sh" ]; then
                 source "${MENU_KEYCLOAK_DIR}/menu_keycloak.sh"
