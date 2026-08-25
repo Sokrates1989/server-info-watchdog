@@ -37,7 +37,11 @@
             <div id="actions-top"></div>
 
             <!-- Server Settings -->
-            <div class="card">
+            <div
+                class="card"
+                id="server-settings-card"
+                data-collapse-summary="Settings"
+            >
                 <h2>Server Settings</h2>
                 <div class="form-group">
                     <label for="server-name">Server Name</label>
@@ -53,46 +57,55 @@
                 </div>
             </div>
 
-            <!-- Telegram Chat IDs -->
-            <div class="card">
-                <h2>Telegram Chat IDs</h2>
-                <p class="hint">Comma-separated list of chat IDs (use negative numbers for groups)</p>
-                <div class="form-group">
-                    <label for="error-chat-ids">Error Chat IDs</label>
-                    <input type="text" id="error-chat-ids" placeholder="-123456789">
-                </div>
-                <div class="form-group">
-                    <label for="warning-chat-ids">Warning Chat IDs</label>
-                    <input type="text" id="warning-chat-ids" placeholder="-123456789">
-                </div>
-                <div class="form-group">
-                    <label for="info-chat-ids">Info Chat IDs</label>
-                    <input type="text" id="info-chat-ids" placeholder="-123456789">
-                </div>
-            </div>
-
-            <!-- Message Frequency -->
-            <div class="card">
-                <h2>Message Frequency</h2>
-                <p class="hint">How often to send messages of each type (e.g., 1h, 1d, 3d)</p>
-                <div class="form-row">
+            <!-- Telegram routing and frequency controls. -->
+            <div
+                class="card"
+                id="notification-settings-card"
+                data-collapse-summary="Telegram"
+            >
+                <h2>Notifications</h2>
+                <section class="notification-subsection">
+                    <h3>Telegram Chat IDs</h3>
+                    <p class="hint">Comma-separated list of chat IDs (use negative numbers for groups)</p>
                     <div class="form-group">
-                        <label for="freq-info">Info</label>
-                        <input type="text" id="freq-info" placeholder="1h">
+                        <label for="error-chat-ids">Error Chat IDs</label>
+                        <input type="text" id="error-chat-ids" placeholder="-123456789">
                     </div>
                     <div class="form-group">
-                        <label for="freq-warning">Warning</label>
-                        <input type="text" id="freq-warning" placeholder="1d">
+                        <label for="warning-chat-ids">Warning Chat IDs</label>
+                        <input type="text" id="warning-chat-ids" placeholder="-123456789">
                     </div>
                     <div class="form-group">
-                        <label for="freq-error">Error</label>
-                        <input type="text" id="freq-error" placeholder="3d">
+                        <label for="info-chat-ids">Info Chat IDs</label>
+                        <input type="text" id="info-chat-ids" placeholder="-123456789">
                     </div>
-                </div>
+                </section>
+                <section class="notification-subsection">
+                    <h3>Message Frequency</h3>
+                    <p class="hint">How often to send messages of each type (e.g., 1h, 1d, 3d)</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="freq-info">Info</label>
+                            <input type="text" id="freq-info" placeholder="1h">
+                        </div>
+                        <div class="form-group">
+                            <label for="freq-warning">Warning</label>
+                            <input type="text" id="freq-warning" placeholder="1d">
+                        </div>
+                        <div class="form-group">
+                            <label for="freq-error">Error</label>
+                            <input type="text" id="freq-error" placeholder="3d">
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <!-- Thresholds -->
-            <div class="card">
+            <div
+                class="card"
+                id="thresholds-card"
+                data-collapse-summary="Unavailable"
+            >
                 <h2>Thresholds</h2>
                 <p class="hint">Warning and error thresholds for each metric with current values</p>
                 
@@ -117,6 +130,7 @@
         </footer>
     </div>
 
+    <script src="collapsible-cards.js?v=collapsed-sections"></script>
     <script src="app.js"></script>
 </body>
 </html>

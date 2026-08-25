@@ -201,6 +201,7 @@ function populateForm(config) {
 
 function populateThresholds(thresholds, currentValues = null) {
     thresholdsContainer.innerHTML = '';
+    let overallStatus = 'unavailable';
 
     // Define the desired order for consistent display
     const desiredOrder = [
@@ -271,6 +272,14 @@ function populateThresholds(thresholds, currentValues = null) {
                 }
             }
         }
+
+        if (statusClass === 'status-error') {
+            overallStatus = 'error';
+        } else if (statusClass === 'status-warning' && overallStatus !== 'error') {
+            overallStatus = 'warning';
+        } else if (statusClass === 'status-ok' && overallStatus === 'unavailable') {
+            overallStatus = 'ok';
+        }
         
         const item = document.createElement('div');
         item.className = 'threshold-item';
@@ -291,6 +300,14 @@ function populateThresholds(thresholds, currentValues = null) {
         `;
         thresholdsContainer.appendChild(item);
     }
+
+    const summaryLabels = {
+        unavailable: 'Unavailable',
+        ok: 'Healthy',
+        warning: 'Warning',
+        error: 'Error'
+    };
+    window.setCollapsibleCardSummary?.('thresholds-card', summaryLabels[overallStatus], overallStatus);
 }
 
 function formatCurrentValue(key, value) {
@@ -621,6 +638,7 @@ async function loadConfig(silent = false) {
 
 // Initialize
 async function init() {
+    window.initializeCollapsibleCards?.();
     // Load version immediately
     loadVersion();
     

@@ -301,3 +301,85 @@ footer {
         margin-bottom: 0.25rem;
     }
 }
+/* Collapsed configuration sections keep their most useful state visible. */
+.card-collapse-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    cursor: pointer;
+}
+
+.card-collapse-header h2 {
+    min-width: 0;
+    flex: 1;
+    margin: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.card-collapse-summary {
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    background: #e2e8f0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.card-collapse-summary.summary-ok {
+    background: #dcfce7;
+    color: var(--success-color);
+}
+
+.card-collapse-summary.summary-warning {
+    background: #fef3c7;
+    color: var(--warning-color);
+}
+
+.card-collapse-summary.summary-error {
+    background: #fee2e2;
+    color: var(--error-color);
+}
+
+.card-collapse-toggle {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: white;
+    color: var(--text-color);
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.card-collapse-toggle:hover,
+.card-collapse-toggle:focus-visible {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    outline: 2px solid transparent;
+}
+
+.card-collapse-body {
+    padding-top: 1rem;
+}
+
+.card-collapse-body[hidden] {
+    display: none;
+}
+
+.notification-subsection + .notification-subsection {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.notification-subsection h3 {
+    margin-top: 0;
+}
